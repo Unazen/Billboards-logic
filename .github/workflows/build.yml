@@ -27,10 +27,10 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: Restore
-        run: dotnet restore BillboardSystem.sln
+        run: dotnet restore BillboardSystem.slnx
 
       - name: Build
-        run: dotnet build BillboardSystem.sln --no-restore
+        run: dotnet build BillboardSystem.slnx --no-restore
 
       - name: Test
-        run: dotnet test BillboardSystem.sln --no-build --verbosity normal
+        run: dotnet test BillboardSystem.slnx --no-build --verbosity normal
