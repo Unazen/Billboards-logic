@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Billboard.Api/Billboard.Api.csproj" />
+    <Project Path="src/Billboard.Application/Billboard.Application.csproj" />
+    <Project Path="src/Billboard.Domain/Billboard.Domain.csproj" />
+    <Project Path="src/Billboard.Infrastructure/Billboard.Infrastructure.csproj" />
+    <Project Path="src/Billboard.Simulator/Billboard.Simulator.csproj" />
+    <Project Path="src/Billboard.Web/Billboard.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Billboard.UnitTests/Billboard.UnitTests.csproj" />
+  </Folder>
+</Solution>
