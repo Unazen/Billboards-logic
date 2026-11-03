@@ -1,0 +1,46 @@
+.status-bar {
+    min-height: 38px;
+    padding: 8px 32px;
+    background: #ffffff;
+    border-top: 1px solid #e8ebf0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    color: #8490a3;
+}
+
+.status-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.status-indicator {
+    width: 7px;
+    height: 7px;
+    background: #20b879;
+    border-radius: 50%;
+}
+
+.status-statistics {
+    display: flex;
+    gap: 20px;
+}
+
+.status-statistics strong {
+    color: #39465a;
+}
+
+@media (max-width: 768px) {
+    .status-bar {
+        padding: 8px 12px;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .status-statistics {
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+}
