@@ -1,12 +1,32 @@
-<footer class="status-bar">
-    <div class="status-item">
-        <span class="status-indicator"></span>
-        Подключение активно
-    </div>
+@implements IDisposable
+@inject AdminDemoStore Store
 
-    <div class="status-statistics">
-        <span>Пользователи: <strong>12</strong></span>
-        <span>Устройства: <strong>38</strong></span>
-        <span>Файлы: <strong>124</strong></span>
-    </div>
+<footer class="status-bar">
+	<div class="status-connection">
+		<span class="status-dot"></span>
+		Подключение активно
+	</div>
+
+	<div class="status-metrics">
+		<span>Пользователей: <strong>@Store.Users.Count</strong></span>
+		<span>Устройств: <strong>@Store.Devices.Count</strong></span>
+		<span>Файлов: <strong>@Store.UploadedFilesCount</strong></span>
+	</div>
 </footer>
+
+@code {
+	protected override void OnInitialized()
+	{
+		Store.Changed += OnStoreChanged;
+	}
+
+	private void OnStoreChanged()
+	{
+		_ = InvokeAsync(StateHasChanged);
+	}
+
+	public void Dispose()
+	{
+		Store.Changed -= OnStoreChanged;
+	}
+}

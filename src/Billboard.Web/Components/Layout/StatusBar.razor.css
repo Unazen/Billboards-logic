@@ -1,46 +1,42 @@
+
 .status-bar {
-    min-height: 38px;
-    padding: 8px 32px;
-    background: #ffffff;
-    border-top: 1px solid #e8ebf0;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 11px;
-    color: #8490a3;
+    gap: 16px;
+    padding: 14px 24px;
+    background: white;
+    border-top: 1px solid #e8ebf1;
+    color: #778196;
+    font-size: 13px;
 }
 
-.status-item {
+.status-connection {
     display: flex;
     align-items: center;
-    gap: 7px;
+    gap: 8px;
 }
 
-.status-indicator {
-    width: 7px;
-    height: 7px;
-    background: #20b879;
+.status-dot {
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
+    background: #20a464;
 }
 
-.status-statistics {
+.status-metrics {
     display: flex;
+    flex-wrap: wrap;
     gap: 20px;
 }
 
-.status-statistics strong {
-    color: #39465a;
+.status-metrics strong {
+    color: #172033;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 700px) {
     .status-bar {
-        padding: 8px 12px;
-        flex-wrap: wrap;
-        gap: 8px;
-    }
-
-    .status-statistics {
-        gap: 10px;
-        flex-wrap: wrap;
+        align-items: flex-start;
+        flex-direction: column;
     }
 }

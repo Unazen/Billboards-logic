@@ -1,0 +1,117 @@
+
+.management-page {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.management-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+}
+
+.management-heading h1 {
+    margin: 0;
+}
+
+.management-heading p {
+    color: #778196;
+    margin: 6px 0 0;
+}
+
+.management-count {
+    background: #e9edff;
+    color: #4355bd;
+    padding: 8px 14px;
+    border-radius: 20px;
+}
+
+.management-card {
+    background: white;
+    border: 1px solid #e8ebf1;
+    border-radius: 14px;
+    padding: 24px;
+}
+
+.management-card h2 {
+    margin: 0 0 20px;
+    font-size: 18px;
+}
+
+.add-form {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.add-form input {
+    flex: 1;
+    min-width: 180px;
+    padding: 11px 14px;
+    border: 1px solid #dfe3eb;
+    border-radius: 8px;
+    outline: none;
+}
+
+.add-form input:focus {
+    border-color: #5365cf;
+}
+
+.primary-button,
+.delete-button {
+    border: none;
+    border-radius: 8px;
+    padding: 11px 16px;
+    cursor: pointer;
+}
+
+.primary-button {
+    color: white;
+    background: #5365cf;
+}
+
+.delete-button {
+    color: #b54747;
+    background: #fdeaea;
+}
+
+.form-message {
+    margin: 14px 0 0;
+    color: #5365cf;
+    font-size: 14px;
+}
+
+.table-wrapper {
+    overflow-x: auto;
+}
+
+.management-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.management-table th,
+.management-table td {
+    padding: 14px 12px;
+    border-bottom: 1px solid #edf0f5;
+    white-space: nowrap;
+}
+
+.management-table th {
+    color: #778196;
+    font-size: 13px;
+}
+
+@media (max-width: 650px) {
+    .management-heading {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .add-form {
+        flex-direction: column;
+    }
+}
