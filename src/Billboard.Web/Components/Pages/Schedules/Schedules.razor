@@ -1,0 +1,137 @@
+
+@page "/schedules"
+@implements IDisposable
+@inject ScheduleDemoStore Store
+
+<PageTitle>Расписания | Billboard</PageTitle>
+
+<div class="management-page">
+    <div class="page-heading">
+        <div>
+            <h1>Расписания</h1>
+            <p>Управление рекламными трансляциями на билбордах</p>
+        </div>
+
+        <a href="/schedules/create" class="primary-button">
+            + Создать расписание
+        </a>
+    </div>
+
+    <div class="schedule-stats">
+        <div class="stat-card">
+            <span>Всего расписаний</span>
+            <strong>@Store.Schedules.Count</strong>
+        </div>
+
+        <div class="stat-card">
+            <span>Активных</span>
+            <strong>@Store.Schedules.Count(s => s.IsActive)</strong>
+        </div>
+
+        <div class="stat-card">
+            <span>Приостановлено</span>
+            <strong>@Store.Schedules.Count(s => !s.IsActive)</strong>
+        </div>
+    </div>
+
+    <section class="schedule-section">
+        <h2>Все расписания</h2>
+
+        @if (Store.Schedules.Count == 0)
+        {
+            <div class="empty-state">
+                Расписаний пока нет.
+            </div>
+        }
+        else
+        {
+            <div class="table-wrapper">
+                <table class="schedule-table">
+                    <thead>
+                        <tr>
+                            <th>Название</th>
+                            <th>Видеоролик</th>
+                            <th>Назначение</th>
+                            <th>Период</th>
+                            <th>Показов/час</th>
+                            <th>Статус</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        @foreach (var schedule in Store.Schedules)
+                        {
+                            var video = Store.GetVideo(schedule.VideoId);
+
+                            <tr>
+                                <td>
+                                    <strong>@schedule.Name</strong>
+                                </td>
+
+                                <td>
+                                    @(video?.Title ?? "Неизвестный ролик")
+                                </td>
+
+                                <td>
+                                    <span class="target-type">
+                                        @(schedule.TargetType == ScheduleTargetType.Device
+                                            ? "Устройство"
+                                            : "Группа")
+                                    </span>
+
+                                    <div>@schedule.TargetName</div>
+                                </td>
+
+                                <td>
+                                    @schedule.StartAt.ToString("dd.MM.yyyy")
+                                    —
+                                    @schedule.EndAt.ToString("dd.MM.yyyy")
+                                </td>
+
+                                <td>@schedule.PlaysPerHour</td>
+
+                                <td>
+                                    <span class="status @(schedule.IsActive ? "active" : "paused")">
+                                        @(schedule.IsActive ? "Активно" : "Приостановлено")
+                                    </span>
+                                </td>
+
+                                <td>
+                                    <div class="actions">
+                                        <button class="action-button"
+                                                @onclick="() => Store.ToggleActive(schedule.Id)">
+                                            @(schedule.IsActive ? "Отключить" : "Включить")
+                                        </button>
+
+                                        <button class="action-button danger"
+                                                @onclick="() => Store.RemoveSchedule(schedule.Id)">
+                                            Удалить
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        Store.Changed += OnStoreChanged;
+    }
+
+    private void OnStoreChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        Store.Changed -= OnStoreChanged;
+    }
+}

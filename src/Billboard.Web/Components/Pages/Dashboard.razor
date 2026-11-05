@@ -1,0 +1,108 @@
+@page "/"
+@using Billboard.Web.Components.Shared
+
+<PageTitle>Панель управления | Billboard</PageTitle>
+
+<div class="dashboard">
+    <div class="welcome-section">
+        <div>
+            <h2>Добро пожаловать!</h2>
+            <p>Вот что происходит в вашей системе сегодня.</p>
+        </div>
+
+        <span class="current-date">@DateTime.Now.ToString("dd.MM.yyyy")</span>
+    </div>
+
+    <div class="statistics-grid">
+        <StatCard
+            Title="Всего билбордов"
+            Value="38"
+            Description="12 групп устройств"
+            Icon="▣" />
+
+        <StatCard
+            Title="Активные устройства"
+            Value="34"
+            Description="4 устройства отключены"
+            Icon="◉" />
+
+        <StatCard
+            Title="Рекламные ролики"
+            Value="124"
+            Description="В медиатеке"
+            Icon="▷" />
+
+        <StatCard
+            Title="Активные расписания"
+            Value="18"
+            Description="На текущий момент"
+            Icon="◷" />
+    </div>
+
+    <div class="dashboard-grid">
+        <section class="dashboard-panel">
+            <div class="panel-header">
+                <h3>Состояние устройств</h3>
+                <a href="/billboards">Все устройства →</a>
+            </div>
+
+            <div class="device-summary">
+                <div class="device-summary-item">
+                    <span class="device-dot online"></span>
+                    <div>
+                        <strong>34</strong>
+                        <small>В сети</small>
+                    </div>
+                </div>
+
+                <div class="device-summary-item">
+                    <span class="device-dot offline"></span>
+                    <div>
+                        <strong>4</strong>
+                        <small>Не в сети</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="device-progress">
+                <div class="progress-bar">
+                    <div class="progress-value"></div>
+                </div>
+                <span>89% устройств работают</span>
+            </div>
+        </section>
+
+        <section class="dashboard-panel">
+            <div class="panel-header">
+                <h3>Последние события</h3>
+                <a href="/admin/logs">Все события →</a>
+            </div>
+
+            <div class="activity-list">
+                <div class="activity-item">
+                    <span class="activity-icon success">✓</span>
+                    <div>
+                        <strong>Устройство подключено</strong>
+                        <small>Billboard #12 · 5 минут назад</small>
+                    </div>
+                </div>
+
+                <div class="activity-item">
+                    <span class="activity-icon info">↑</span>
+                    <div>
+                        <strong>Загружен рекламный ролик</strong>
+                        <small>Summer.mp4 · 18 минут назад</small>
+                    </div>
+                </div>
+
+                <div class="activity-item">
+                    <span class="activity-icon warning">!</span>
+                    <div>
+                        <strong>Устройство отключено</strong>
+                        <small>Billboard #08 · 32 минуты назад</small>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>

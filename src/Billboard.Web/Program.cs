@@ -1,4 +1,6 @@
 using Billboard.Web.Components;
+using Billboard.Web.Services;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -6,6 +8,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+builder.Services.AddSingleton<ScheduleDemoStore>();
+builder.Services.AddSingleton<AdminDemoStore>();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

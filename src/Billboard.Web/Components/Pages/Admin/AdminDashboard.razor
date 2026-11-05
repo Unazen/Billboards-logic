@@ -1,0 +1,95 @@
+
+@page "/admin"
+
+@inject AdminDemoStore Store
+
+<PageTitle>Администрирование | Billboard</PageTitle>
+
+<div class="admin-page">
+    <div class="admin-heading">
+        <div>
+            <h1>Панель администратора</h1>
+            <p>Общее состояние системы и управление ресурсами</p>
+        </div>
+        <span class="admin-role">Администратор</span>
+    </div>
+
+    <div class="admin-stats">
+        <div class="admin-stat-card">
+            <span class="stat-icon">👥</span>
+            <span class="stat-label">Пользователи</span>
+            <strong>@Store.Users.Count</strong>
+            <a href="/admin/users">Управление пользователями →</a>
+        </div>
+
+        <div class="admin-stat-card">
+            <span class="stat-icon">📺</span>
+            <span class="stat-label">Билборды</span>
+            <strong>@Store.Devices.Count</strong>
+            <a href="/admin/billboards">Управление билбордами →</a>
+        </div>
+
+        <div class="admin-stat-card">
+            <span class="stat-icon">🟢</span>
+            <span class="stat-label">В сети</span>
+            <strong>@Store.Devices.Count(d => d.IsOnline)</strong>
+            <span class="stat-description">Устройств работают</span>
+        </div>
+
+        <div class="admin-stat-card">
+            <span class="stat-icon">🔴</span>
+            <span class="stat-label">Не в сети</span>
+            <strong>@Store.Devices.Count(d => !d.IsOnline)</strong>
+            <span class="stat-description">Требуют проверки</span>
+        </div>
+    </div>
+
+    <section class="admin-section">
+        <div class="section-heading">
+            <div>
+                <h2>Последние устройства</h2>
+                <p>Текущее состояние билбордов системы</p>
+            </div>
+
+            <a href="/admin/billboards" class="admin-link">
+                Все устройства →
+            </a>
+        </div>
+
+        <div class="admin-table-wrapper">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Устройство</th>
+                        <th>Местоположение</th>
+                        <th>Владелец</th>
+                        <th>Состояние</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var device in Store.Devices.Take(5))
+                    {
+                        var owner = Store.Users.FirstOrDefault(
+                            u => u.Id == device.OwnerId);
+
+                        <tr>
+                            <td>@device.Name</td>
+                            <td>@device.Location</td>
+                            <td>@(owner?.Name ?? "Неизвестен")</td>
+                            <td>
+                                @if (device.IsOnline)
+                                {
+                                    <span class="status online">В сети</span>
+                                }
+                                else
+                                {
+                                    <span class="status offline">Не в сети</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>

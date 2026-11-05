@@ -1,0 +1,152 @@
+
+@page "/admin/billboards"
+
+@inject AdminDemoStore Store
+
+<PageTitle>Билборды | Billboard</PageTitle>
+
+<div class="management-page">
+    <div class="management-heading">
+        <div>
+            <h1>Билборды</h1>
+            <p>Управление устройствами и их владельцами</p>
+        </div>
+
+        <span class="management-count">
+            Всего: @Store.Devices.Count
+        </span>
+    </div>
+
+    <section class="management-card">
+        <h2>Добавить билборд</h2>
+
+        @if (Store.Users.Count == 0)
+        {
+            <p>Сначала добавьте пользователя, который будет владельцем устройства.</p>
+        }
+        else
+        {
+            <div class="add-form">
+                <input
+                    @bind="newName"
+                    placeholder="Название устройства" />
+
+                <input
+                    @bind="newLocation"
+                    placeholder="Местоположение" />
+
+                <select @bind="selectedOwnerId">
+                    @foreach (var user in Store.Users)
+                    {
+                        <option value="@user.Id">@user.Name</option>
+                    }
+                </select>
+
+                <button class="primary-button" @onclick="AddDevice">
+                    + Добавить
+                </button>
+            </div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <p class="form-message">@message</p>
+        }
+    </section>
+
+    <section class="management-card">
+        <h2>Список устройств</h2>
+
+        <div class="table-wrapper">
+            <table class="management-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Название</th>
+                        <th>Местоположение</th>
+                        <th>Владелец</th>
+                        <th>Состояние</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @foreach (var device in Store.Devices)
+                    {
+                        var owner = Store.Users.FirstOrDefault(
+                            u => u.Id == device.OwnerId);
+
+                        <tr>
+                            <td>@device.Id</td>
+                            <td>@device.Name</td>
+                            <td>@device.Location</td>
+                            <td>@(owner?.Name ?? "Неизвестен")</td>
+                            <td>
+                                @if (device.IsOnline)
+                                {
+                                    <span class="status online">В сети</span>
+                                }
+                                else
+                                {
+                                    <span class="status offline">Не в сети</span>
+                                }
+                            </td>
+                            <td>
+                                <button
+                                    class="delete-button"
+                                    @onclick="() => RemoveDevice(device.Id)">
+                                    Удалить
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+@code {
+    private string newName = "";
+    private string newLocation = "";
+    private int selectedOwnerId;
+    private string message = "";
+
+    protected override void OnInitialized()
+    {
+        if (Store.Users.Count > 0)
+            selectedOwnerId = Store.Users[0].Id;
+    }
+
+    private void AddDevice()
+    {
+        if (string.IsNullOrWhiteSpace(newName) ||
+            string.IsNullOrWhiteSpace(newLocation))
+        {
+            message = "Заполните название и местоположение.";
+            return;
+        }
+
+        if (!Store.Users.Any(u => u.Id == selectedOwnerId))
+        {
+            message = "Выберите существующего владельца.";
+            return;
+        }
+
+        Store.AddDevice(
+            newName.Trim(),
+            selectedOwnerId,
+            newLocation.Trim()
+        );
+
+        newName = "";
+        newLocation = "";
+        message = "Устройство успешно добавлено.";
+    }
+
+    private void RemoveDevice(int id)
+    {
+        Store.RemoveDevice(id);
+        message = "Устройство удалено.";
+    }
+}
