@@ -8,7 +8,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-
+builder.Services.AddSingleton<ScheduleDemoStore>();
 builder.Services.AddSingleton<AdminDemoStore>();
 var app = builder.Build();
 
