@@ -1,50 +1,30 @@
-﻿<div class="sidebar">
-    <div class="brand">
-        <div class="brand-icon">B</div>
-        <div class="brand-name">
-            <span>Billboard</span>
-            <small>Management System</small>
-        </div>
-    </div>
-
-    <div class="menu-section">
-        <span class="menu-label">ОСНОВНОЕ</span>
-
-        <NavLink href="/" Match="NavLinkMatch.All" class="menu-link">
-            <span class="menu-icon">▦</span>
-            <span>Панель управления</span>
-        </NavLink>
-
-        <NavLink href="/schedules" class="menu-link">
-            <span class="menu-icon">◷</span>
-            <span>Расписания</span>
-        </NavLink>
-    </div>
-
-    <div class="menu-section">
-        <span class="menu-label">АДМИНИСТРИРОВАНИЕ</span>
-
-        <NavLink href="/admin" Match="NavLinkMatch.All" class="menu-link">
-            <span class="menu-icon">▥</span>
-            <span>Панель администратора</span>
-        </NavLink>
-
-        <NavLink href="/admin/users" class="menu-link">
-            <span class="menu-icon">♙</span>
-            <span>Пользователи</span>
-        </NavLink>
-
-        <NavLink href="/admin/billboards" class="menu-link">
-            <span class="menu-icon">▣</span>
-            <span>Билборды</span>
-        </NavLink>
-    </div>
-
-    <div class="sidebar-footer">
-        <div class="user-avatar">A</div>
-        <div class="user-info">
-            <strong>Администратор</strong>
-            <small>Системный аккаунт</small>
-        </div>
+﻿<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">Billboard.Web</a>
     </div>
 </div>
+
+<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+    <nav class="nav flex-column">
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="counter">
+                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="weather">
+                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
+            </NavLink>
+        </div>
+    </nav>
+</div>
+
