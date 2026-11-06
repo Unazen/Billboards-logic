@@ -16,10 +16,10 @@
 Требуется установленный .NET SDK.
 
 Сборка:
-dotnet build BillboardSystem.sln
+dotnet build BillboardSystem.slnx
 
 Тесты:
-dotnet test BillboardSystem.sln
+dotnet test BillboardSystem.slnx
 
 ## Правила разработки
 
@@ -32,3 +32,18 @@ dotnet test BillboardSystem.sln
 ## Архитектура
 
 Описание модулей находится в docs/.
+
+## Запуск через Docker Compose
+
+    cp .env.example .env      # задайте пароли
+    docker compose up --build
+
+API: http://localhost:8080, консоль MinIO: http://localhost:9001.
+Администратор создаётся из SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD.
+
+## Миграции EF Core
+
+    dotnet tool install --global dotnet-ef
+    dotnet ef migrations add Initial -p src/Billboard.Infrastructure -s src/Billboard.Api
+
+Пока миграций нет, схема создаётся автоматически (EnsureCreated).
