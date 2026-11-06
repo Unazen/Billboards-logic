@@ -1,4 +1,3 @@
-
 namespace Billboard.Web.Services;
 
 public enum ScheduleTargetType
@@ -113,6 +112,86 @@ public class ScheduleDemoStore
         NotifyChanged();
     }
 
+    public bool TryAddSchedule(
+        string name,
+        int videoId,
+        string targetName,
+        ScheduleTargetType targetType,
+        DateTime startAt,
+        DateTime endAt,
+        int playsPerHour,
+        out string error)
+    {
+        name = name?.Trim() ?? string.Empty;
+        targetName = targetName?.Trim() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            error = "Укажите название расписания.";
+            return false;
+        }
+
+        if (name.Length > 100)
+        {
+            error = "Название не должно превышать 100 символов.";
+            return false;
+        }
+
+        if (GetVideo(videoId) is null)
+        {
+            error = "Выбранный видеоролик не найден.";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(targetName))
+        {
+            error = "Укажите название устройства или группы.";
+            return false;
+        }
+
+        if (targetName.Length > 100)
+        {
+            error = "Название устройства или группы не должно превышать 100 символов.";
+            return false;
+        }
+
+        if (startAt.Date > endAt.Date)
+        {
+            error = "Дата окончания не может быть раньше даты начала.";
+            return false;
+        }
+
+        if (playsPerHour <= 0)
+        {
+            error = "Количество показов в час должно быть больше нуля.";
+            return false;
+        }
+
+        if (!Enum.IsDefined(targetType))
+        {
+            error = "Выбран неизвестный тип назначения.";
+            return false;
+        }
+
+        _schedules.Add(new ScheduleItem(
+            _nextScheduleId++,
+            name,
+            videoId,
+            targetName,
+            targetType,
+            startAt.Date,
+            endAt.Date,
+            playsPerHour,
+            true
+        ));
+
+        error = string.Empty;
+        NotifyChanged();
+
+        return true;
+    }
+
+    // Оставляем прежний метод для совместимости с возможными вызовами.
     public void AddSchedule(
         string name,
         int videoId,
@@ -122,19 +201,18 @@ public class ScheduleDemoStore
         DateTime endAt,
         int playsPerHour)
     {
-        _schedules.Add(new ScheduleItem(
-            _nextScheduleId++,
-            name,
-            videoId,
-            targetName,
-            targetType,
-            startAt,
-            endAt,
-            playsPerHour,
-            true
-        ));
-
-        NotifyChanged();
+        if (!TryAddSchedule(
+                name,
+                videoId,
+                targetName,
+                targetType,
+                startAt,
+                endAt,
+                playsPerHour,
+                out var error))
+        {
+            throw new ArgumentException(error);
+        }
     }
 
     private void NotifyChanged()
