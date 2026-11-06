@@ -1,0 +1,9 @@
+**/bin/
+**/obj/
+**/.git/
+**/.vs/
+**/.idea/
+**/*.user
+**/TestResults/
+storage-data/
+tests/**/test-storage/

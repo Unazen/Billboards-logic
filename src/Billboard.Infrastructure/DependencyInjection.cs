@@ -3,6 +3,7 @@ using Billboard.Domain.Interfaces;
 using Billboard.Infrastructure.Media;
 using Billboard.Infrastructure.Payments;
 using Billboard.Infrastructure.Persistence;
+using Billboard.Infrastructure.Scheduling;
 using Billboard.Infrastructure.Services;
 using Billboard.Infrastructure.Storage;
 using Microsoft.EntityFrameworkCore;
@@ -44,6 +45,11 @@ public static class DependencyInjection
         services.AddScoped<IPlaybackService, PlaybackService>();
         services.AddScoped<IBillboardService, BillboardService>();
         services.AddScoped<IAdminService, AdminService>();
+
+        // Планирование: базовая проверка ёмкости; участник 2 заменяет реализацию своим планировщиком.
+        services.AddScoped<IScheduleValidator, CapacityScheduleValidator>();
+        services.AddScoped<IPlacementService, PlacementService>();
+        services.AddScoped<IDeviceService, DeviceService>();
 
         return services;
     }

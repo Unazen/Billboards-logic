@@ -8,6 +8,7 @@
     <Project Path="src/Billboard.Web/Billboard.Web.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Billboard.IntegrationTests/Billboard.IntegrationTests.csproj" />
     <Project Path="tests/Billboard.UnitTests/Billboard.UnitTests.csproj" />
   </Folder>
 </Solution>
