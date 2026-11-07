@@ -11,7 +11,7 @@
         </div>
     </div>
 
-    @if (Session.IsAdministrator)
+    @if (Session.HasSelectedAccount && Session.IsAdministrator)
     {
         <div class="menu-section">
             <span class="menu-label">АДМИНИСТРАТОР</span>
@@ -38,7 +38,7 @@
             </NavLink>
         </div>
     }
-    else
+    else if (Session.HasSelectedAccount)
     {
         <div class="menu-section">
             <span class="menu-label">ПОЛЬЗОВАТЕЛЬ</span>
@@ -67,14 +67,14 @@
     }
 
     <div class="sidebar-footer">
-        <div class="user-avatar">@(Session.IsAdministrator ? "A" : Session.CurrentName[..1])</div>
+        <div class="user-avatar">@(Session.HasSelectedAccount ? Session.CurrentName[..1] : "?")</div>
         <div class="user-info">
             <strong>@Session.CurrentName</strong>
-            <small>@(Session.IsAdministrator ? "Администратор" : Session.CurrentEmail)</small>
+            <small>@(Session.HasSelectedAccount && Session.IsAdministrator ? "Администратор" : Session.CurrentEmail)</small>
         </div>
-        <NavLink href="/login" class="account-switch-link" title="Войти или сменить пользователя">
+        <button type="button" class="account-switch-link" aria-label="Сменить пользователя" title="Войти или сменить пользователя" @onclick="SwitchAccount">
             <span aria-hidden="true">⇄</span><span>Сменить пользователя</span>
-        </NavLink>
+        </button>
     </div>
 </div>
 
@@ -90,6 +90,9 @@
 
     private void OnSessionChanged() =>
         _ = InvokeAsync(StateHasChanged);
+
+    private void SwitchAccount() =>
+        Navigation.NavigateTo("/login");
 
     public void Dispose()
     {

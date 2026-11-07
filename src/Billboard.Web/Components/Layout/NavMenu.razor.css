@@ -123,16 +123,25 @@
     align-items: center;
     gap: 8px;
     padding: 8px 10px;
+    border: 0;
+    background: transparent;
     border-radius: 7px;
     color: #b5bfd0;
     font-size: 11px;
     text-decoration: none;
+    text-align: left;
+    cursor: pointer;
 }
 
 .account-switch-link:hover,
 .account-switch-link.active {
     background: #26344c;
     color: #fff;
+}
+
+.account-switch-link:focus-visible {
+    outline: 2px solid #8db4ff;
+    outline-offset: 2px;
 }
 
 @media (max-width: 768px) {

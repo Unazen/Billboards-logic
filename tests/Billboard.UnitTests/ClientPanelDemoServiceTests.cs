@@ -30,7 +30,11 @@ public sealed class ClientPanelDemoServiceTests
     {
         var session = new DemoUserSession(new AdminDemoStore());
 
+        Assert.False(session.HasSelectedAccount);
+        Assert.Equal("Выберите пользователя", session.CurrentName);
+
         Assert.True(session.TrySignIn("admin"));
+        Assert.True(session.HasSelectedAccount);
         Assert.True(session.IsAdministrator);
         Assert.Equal("Администратор", session.CurrentName);
 

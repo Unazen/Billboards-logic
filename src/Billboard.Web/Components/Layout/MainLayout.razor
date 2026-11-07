@@ -27,6 +27,15 @@
     </div>
 
     @code {
+        protected override void OnInitialized()
+        {
+            if (!Session.HasSelectedAccount && !IsLoginPath)
+                Navigation.NavigateTo("/login", replace: true);
+        }
+
+        private bool IsLoginPath =>
+            new Uri(Navigation.Uri).AbsolutePath.Equals("/login", StringComparison.OrdinalIgnoreCase);
+
         private bool IsAdminPath =>
             new Uri(Navigation.Uri).AbsolutePath.StartsWith("/admin", StringComparison.OrdinalIgnoreCase);
     }

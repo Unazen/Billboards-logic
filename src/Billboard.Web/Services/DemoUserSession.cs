@@ -15,20 +15,21 @@ public sealed class DemoUserSession
     public DemoUserSession(AdminDemoStore adminStore)
     {
         _adminStore = adminStore;
-        CurrentUserId = adminStore.Users.FirstOrDefault()?.Id ?? 0;
     }
 
     public int? CurrentUserId { get; private set; }
+
+    public bool HasSelectedAccount { get; private set; }
 
     public bool IsAdministrator { get; private set; }
 
     public string CurrentName => IsAdministrator
         ? "Администратор"
-        : _adminStore.Users.FirstOrDefault(user => user.Id == CurrentUserId)?.Name ?? "Пользователь";
+        : _adminStore.Users.FirstOrDefault(user => user.Id == CurrentUserId)?.Name ?? "Выберите пользователя";
 
     public string CurrentEmail => IsAdministrator
         ? "admin@billboard.local"
-        : _adminStore.Users.FirstOrDefault(user => user.Id == CurrentUserId)?.Email ?? string.Empty;
+        : _adminStore.Users.FirstOrDefault(user => user.Id == CurrentUserId)?.Email ?? "Демо-вход";
 
     public IReadOnlyList<DemoAccount> Accounts =>
     [
@@ -53,6 +54,7 @@ public sealed class DemoUserSession
 
         CurrentUserId = account.UserId;
         IsAdministrator = account.IsAdministrator;
+        HasSelectedAccount = true;
         Changed?.Invoke();
         return true;
     }

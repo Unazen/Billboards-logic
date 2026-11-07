@@ -14,7 +14,8 @@
 
         <form @onsubmit="SignIn" @onsubmit:preventDefault>
             <label for="demo-account">Тестовый пользователь</label>
-            <select id="demo-account" @bind="SelectedAccountKey">
+            <select id="demo-account" @bind="SelectedAccountKey" required>
+                <option value="" disabled>Выберите учётную запись</option>
                 @foreach (var account in Session.Accounts)
                 {
                     <option value="@account.Key">@account.Name — @(account.IsAdministrator ? "Панель администратора" : account.Email)</option>
@@ -39,13 +40,6 @@
 @code {
     private string SelectedAccountKey { get; set; } = string.Empty;
     private string ErrorMessage { get; set; } = string.Empty;
-
-    protected override void OnInitialized()
-    {
-        SelectedAccountKey = Session.IsAdministrator
-            ? "admin"
-            : $"user-{Session.CurrentUserId}";
-    }
 
     private void SignIn()
     {
