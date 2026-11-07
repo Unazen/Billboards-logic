@@ -6,14 +6,16 @@ public record ClientMediaItem(
     string Extension,
     long Size,
     DateTime AddedAt,
-    string Status
+    string Status,
+    int OwnerId = 1
 );
 
 public record PlaybackStatistic(
     string Title,
     int Impressions,
     int MinutesPlayed,
-    double CompletionRate
+    double CompletionRate,
+    int OwnerId = 1
 );
 
 public record ClientStream(
@@ -40,19 +42,23 @@ public interface IClientPanelService
 
 public sealed class ClientPanelDemoService(
     AdminDemoStore adminStore,
-    ScheduleDemoStore scheduleStore) : IClientPanelService
+    ScheduleDemoStore scheduleStore,
+    DemoUserSession session) : IClientPanelService
 {
-    public int UserId => 1;
+    public int UserId => session.CurrentUserId ?? 0;
 
     public string UserName =>
-        adminStore.Users.FirstOrDefault(user => user.Id == UserId)?.Name ?? "Клиент";
+        session.CurrentName;
 
     private readonly List<ClientMediaItem> _media =
     [
         new(Guid.Parse("10000000-0000-0000-0000-000000000001"), "Реклама автомобиля", ".mp4", 28_400_000, DateTime.Today.AddDays(-12), "Готово"),
         new(Guid.Parse("10000000-0000-0000-0000-000000000002"), "Реклама магазина", ".mp4", 16_200_000, DateTime.Today.AddDays(-8), "Готово"),
         new(Guid.Parse("10000000-0000-0000-0000-000000000003"), "Реклама смартфона", ".webm", 22_700_000, DateTime.Today.AddDays(-4), "Готово"),
-        new(Guid.Parse("10000000-0000-0000-0000-000000000004"), "Реклама ресторана", ".mp4", 31_500_000, DateTime.Today.AddDays(-1), "Готово")
+        new(Guid.Parse("10000000-0000-0000-0000-000000000004"), "Реклама ресторана", ".mp4", 31_500_000, DateTime.Today.AddDays(-1), "Готово"),
+        new(Guid.Parse("20000000-0000-0000-0000-000000000001"), "Осенняя коллекция", ".mp4", 18_600_000, DateTime.Today.AddDays(-6), "Готово", 2),
+        new(Guid.Parse("20000000-0000-0000-0000-000000000002"), "Скидки недели", ".webm", 12_300_000, DateTime.Today.AddDays(-2), "Готово", 2),
+        new(Guid.Parse("30000000-0000-0000-0000-000000000001"), "Городской фестиваль", ".mp4", 20_100_000, DateTime.Today.AddDays(-3), "Готово", 3)
     ];
 
     private readonly List<PlaybackStatistic> _playbackStatistics =
@@ -60,7 +66,10 @@ public sealed class ClientPanelDemoService(
         new("Реклама автомобиля", 12840, 6420, 98.4),
         new("Реклама магазина", 9870, 2468, 96.8),
         new("Реклама смартфона", 7350, 2450, 97.2),
-        new("Реклама ресторана", 4120, 1717, 95.6)
+        new("Реклама ресторана", 4120, 1717, 95.6),
+        new("Осенняя коллекция", 6380, 3190, 97.8, 2),
+        new("Скидки недели", 4260, 1065, 96.1, 2),
+        new("Городской фестиваль", 2840, 1183, 98.1, 3)
     ];
 
     public IReadOnlyList<BillboardDevice> GetBillboards() =>
@@ -88,10 +97,15 @@ public sealed class ClientPanelDemoService(
             .ToList();
 
     public IReadOnlyList<ClientMediaItem> GetMedia() =>
-        _media.OrderByDescending(item => item.AddedAt).ToList();
+        _media
+            .Where(item => item.OwnerId == UserId)
+            .OrderByDescending(item => item.AddedAt)
+            .ToList();
 
     public IReadOnlyList<PlaybackStatistic> GetPlaybackStatistics() =>
-        _playbackStatistics;
+        _playbackStatistics
+            .Where(item => item.OwnerId == UserId)
+            .ToList();
 
     public IReadOnlyList<ClientStream> GetStreams() =>
         GetBillboards()
@@ -114,13 +128,14 @@ public sealed class ClientPanelDemoService(
             extension,
             size,
             DateTime.Now,
-            "В демо-библиотеке"
+            "В демо-библиотеке",
+            UserId
         ));
     }
 
     public void RemoveMedia(Guid id) =>
-        _media.RemoveAll(item => item.Id == id);
+        _media.RemoveAll(item => item.Id == id && item.OwnerId == UserId);
 
     public void ClearMedia() =>
-        _media.Clear();
+        _media.RemoveAll(item => item.OwnerId == UserId);
 }

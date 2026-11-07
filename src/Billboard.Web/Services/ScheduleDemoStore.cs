@@ -64,7 +64,7 @@ public class ScheduleDemoStore
             3,
             "Смартфон — группа №1",
             3,
-            "Центральные билборды",
+            "Центр города",
             ScheduleTargetType.Group,
             DateTime.Today.AddDays(-5),
             DateTime.Today.AddDays(5),
@@ -86,9 +86,10 @@ public class ScheduleDemoStore
         return _videos.FirstOrDefault(video => video.Id == videoId);
     }
 
-    public void ToggleActive(int id)
+    public void ToggleActive(int id, int? ownerId = null)
     {
-        var index = _schedules.FindIndex(schedule => schedule.Id == id);
+        var index = _schedules.FindIndex(schedule =>
+            schedule.Id == id && (ownerId is null || schedule.OwnerId == ownerId));
 
         if (index < 0)
             return;
@@ -103,9 +104,10 @@ public class ScheduleDemoStore
         NotifyChanged();
     }
 
-    public void RemoveSchedule(int id)
+    public void RemoveSchedule(int id, int? ownerId = null)
     {
-        var schedule = _schedules.FirstOrDefault(s => s.Id == id);
+        var schedule = _schedules.FirstOrDefault(s =>
+            s.Id == id && (ownerId is null || s.OwnerId == ownerId));
 
         if (schedule is null)
             return;
@@ -122,7 +124,8 @@ public class ScheduleDemoStore
         DateTime startAt,
         DateTime endAt,
         int playsPerHour,
-        out string error)
+        out string error,
+        int ownerId = 1)
     {
         name = name?.Trim() ?? string.Empty;
         targetName = targetName?.Trim() ?? string.Empty;
@@ -185,7 +188,7 @@ public class ScheduleDemoStore
             endAt.Date,
             playsPerHour,
             true,
-            1
+            ownerId
         ));
 
         error = string.Empty;
@@ -204,9 +207,10 @@ public class ScheduleDemoStore
     DateTime startAt,
     DateTime endAt,
     int playsPerHour,
-    out string error)
+    out string error,
+    int ownerId = 1)
 {
-    var index = _schedules.FindIndex(s => s.Id == id);
+    var index = _schedules.FindIndex(s => s.Id == id && s.OwnerId == ownerId);
 
     if (index < 0)
     {

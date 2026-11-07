@@ -1,0 +1,123 @@
+.login-page {
+    display: flex;
+    min-height: 100%;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+}
+
+.login-card {
+    width: min(100%, 460px);
+    padding: 34px;
+    border: 1px solid #e8ebf0;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 16px 40px rgb(23 32 51 / 7%);
+}
+
+.login-brand-mark {
+    display: flex;
+    width: 46px;
+    height: 46px;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 22px;
+    border-radius: 13px;
+    background: #3978ed;
+    color: #fff;
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.login-eyebrow {
+    color: #3978ed;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+.login-card h1 {
+    margin: 8px 0;
+    color: #172033;
+    font-size: 25px;
+}
+
+.login-description {
+    margin: 0 0 25px;
+    color: #8490a3;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.login-card form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.login-card label {
+    color: #39465a;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.login-card select {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #dfe4ec;
+    border-radius: 8px;
+    background: #fff;
+    color: #29364a;
+    font-size: 13px;
+}
+
+.login-card select:focus {
+    border-color: #3978ed;
+    outline: 3px solid rgb(57 120 237 / 12%);
+}
+
+.login-submit {
+    margin-top: 8px;
+    padding: 12px;
+    border: 0;
+    border-radius: 8px;
+    background: #3978ed;
+    color: #fff;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.login-submit:hover {
+    background: #2867db;
+}
+
+.login-error {
+    margin: 0;
+    color: #c33f3f;
+    font-size: 12px;
+}
+
+.login-disclaimer {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-top: 22px;
+    padding: 12px;
+    border-radius: 8px;
+    background: #f3f7ff;
+    color: #687a95;
+    font-size: 10px;
+    line-height: 1.5;
+}
+
+.login-disclaimer strong {
+    color: #3978ed;
+    font-size: 11px;
+}
+
+@media (max-width: 480px) {
+    .login-card {
+        padding: 25px 20px;
+    }
+}

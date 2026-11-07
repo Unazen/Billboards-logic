@@ -18,6 +18,34 @@
     overflow-x: hidden;
 }
 
+.access-required {
+    max-width: 620px;
+    margin: 10vh auto;
+    padding: 28px;
+    border: 1px solid #e8ebf0;
+    border-radius: 12px;
+    background: #fff;
+}
+
+.access-required h2 {
+    margin: 0 0 8px;
+    color: #172033;
+    font-size: 18px;
+}
+
+.access-required p {
+    color: #8490a3;
+    font-size: 13px;
+}
+
+.access-required-link {
+    display: inline-block;
+    margin-top: 8px;
+    color: #3978ed;
+    font-size: 13px;
+    text-decoration: none;
+}
+
 @media (max-width: 768px) {
     .page-content {
         padding: 20px 16px;

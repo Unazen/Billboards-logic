@@ -103,11 +103,11 @@
                                             Изменить
                                         </a>
 
-                                        <button class="action-button" @onclick="() => Store.ToggleActive(schedule.Id)">
+                                        <button class="action-button" @onclick="() => Store.ToggleActive(schedule.Id, Panel.UserId)">
                                             @(schedule.IsActive ? "Отключить" : "Включить")
                                         </button>
 
-                                        <button class="action-button danger" @onclick="() => Store.RemoveSchedule(schedule.Id)">
+                                        <button class="action-button danger" @onclick="() => Store.RemoveSchedule(schedule.Id, Panel.UserId)">
                                             Удалить
                                         </button>
                                     </div>

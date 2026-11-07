@@ -1,6 +1,6 @@
 @implements IDisposable
 @inject NavigationManager Navigation
-@inject IClientPanelService Panel
+@inject DemoUserSession Session
 
 <div class="sidebar">
     <div class="brand">
@@ -11,7 +11,7 @@
         </div>
     </div>
 
-    @if (IsAdminArea)
+    @if (Session.IsAdministrator)
     {
         <div class="menu-section">
             <span class="menu-label">АДМИНИСТРАТОР</span>
@@ -67,24 +67,33 @@
     }
 
     <div class="sidebar-footer">
-        <div class="user-avatar">@(IsAdminArea ? "A" : "И")</div>
+        <div class="user-avatar">@(Session.IsAdministrator ? "A" : Session.CurrentName[..1])</div>
         <div class="user-info">
-            <strong>@(IsAdminArea ? "Администратор" : Panel.UserName)</strong>
-            <small>@(IsAdminArea ? "Системный аккаунт" : "Демо-пользователь")</small>
+            <strong>@Session.CurrentName</strong>
+            <small>@(Session.IsAdministrator ? "Администратор" : Session.CurrentEmail)</small>
         </div>
+        <NavLink href="/login" class="account-switch-link" title="Войти или сменить пользователя">
+            <span aria-hidden="true">⇄</span><span>Сменить пользователя</span>
+        </NavLink>
     </div>
 </div>
 
 @code {
-    private bool IsAdminArea =>
-        new Uri(Navigation.Uri).AbsolutePath.StartsWith("/admin", StringComparison.OrdinalIgnoreCase);
-
-    protected override void OnInitialized() =>
+    protected override void OnInitialized()
+    {
         Navigation.LocationChanged += OnLocationChanged;
+        Session.Changed += OnSessionChanged;
+    }
 
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs args) =>
         _ = InvokeAsync(StateHasChanged);
 
-    public void Dispose() =>
+    private void OnSessionChanged() =>
+        _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
         Navigation.LocationChanged -= OnLocationChanged;
+        Session.Changed -= OnSessionChanged;
+    }
 }

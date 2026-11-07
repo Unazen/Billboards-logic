@@ -37,6 +37,7 @@
         "/videos" => "Мои рекламные материалы",
         "/schedules" => "Мои расписания",
         "/statistics" => "Статистика показов",
+        "/login" => "Вход / выбор пользователя",
         "/schedules/create" => "Создание расписания",
         _ when CurrentPath.StartsWith("/schedules/edit/", StringComparison.OrdinalIgnoreCase) => "Редактирование расписания",
         _ => "Кабинет пользователя"
@@ -44,6 +45,8 @@
 
     private string Subtitle => CurrentPath.StartsWith("/admin", StringComparison.OrdinalIgnoreCase)
         ? "Управление и состояние системы Billboard"
+        : CurrentPath == "/login"
+            ? "Выберите одну из демонстрационных учётных записей"
         : "Управление вашими устройствами и рекламными размещениями";
 
     protected override void OnInitialized() =>

@@ -3,6 +3,7 @@
 @using Billboard.Web.Services
 
 @inject ScheduleDemoStore Store
+@inject IClientPanelService Panel
 @inject NavigationManager Navigation
 
 <PageTitle>Создание расписания | Billboard</PageTitle>
@@ -47,7 +48,7 @@
 			<div class="form-group">
 				<label for="target-type">Тип назначения</label>
 
-				<select id="target-type" @bind="TargetType">
+				<select id="target-type" @bind="TargetType" @bind:after="HandleTargetTypeChanged">
 					<option value="@ScheduleTargetType.Device">
 						Отдельное устройство
 					</option>
@@ -65,8 +66,17 @@
 						: "Название группы")
 				</label>
 
-				<input id="target-name" type="text" @bind="TargetName" maxlength="100"
-					   placeholder="Например: Билборд №1" />
+				<select id="target-name" @bind="TargetName">
+					<option value="">Выберите назначение</option>
+					@foreach (var target in TargetOptions)
+					{
+						<option value="@target">@target</option>
+					}
+				</select>
+				@if (!TargetOptions.Any())
+				{
+					<small>Нет доступных назначений этого типа для вашей учётной записи.</small>
+				}
 			</div>
 
 			<h2 class="period-heading">Период действия</h2>
@@ -129,10 +139,18 @@
 
 	private string ErrorMessage { get; set; } = string.Empty;
 
+	private IEnumerable<string> TargetOptions => TargetType == ScheduleTargetType.Device
+		? Panel.GetBillboards().Select(device => device.Name)
+		: Panel.GetGroups().Select(group => group.Name);
+
 	protected override void OnInitialized()
 	{
 		VideoId = Store.Videos.FirstOrDefault()?.Id ?? 0;
+		TargetName = TargetOptions.FirstOrDefault() ?? string.Empty;
 	}
+
+	private void HandleTargetTypeChanged() =>
+		TargetName = TargetOptions.FirstOrDefault() ?? string.Empty;
 
 	private void HandleCreateSchedule()
 	{
@@ -144,7 +162,8 @@
 			StartAt,
 			EndAt,
 			PlaysPerHour,
-			out var error
+			out var error,
+			Panel.UserId
 		);
 
 		if (!success)
