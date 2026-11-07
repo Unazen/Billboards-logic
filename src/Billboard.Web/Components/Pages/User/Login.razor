@@ -17,9 +17,7 @@
             <select id="demo-account" @bind="SelectedAccountKey">
                 @foreach (var account in Session.Accounts)
                 {
-                    <option value="@account.Key">
-                        @account.Name — @(account.IsAdministrator ? "Администратор" : account.Email)
-                    </option>
+                    <option value="@account.Key">@account.Name — @(account.IsAdministrator ? "Панель администратора" : account.Email)</option>
                 }
             </select>
 
