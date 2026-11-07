@@ -65,10 +65,60 @@
 }
 
 .admin-stat-card a,
+.admin-stat-card .nav-link,
 .admin-link {
     color: #5365cf;
     font-size: 13px;
     text-decoration: none;
+}
+
+.admin-event-list {
+    margin-top: 16px;
+}
+
+.admin-event-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 58px;
+    border-top: 1px solid #edf0f5;
+}
+
+.admin-event-indicator {
+    width: 9px;
+    height: 9px;
+    flex: 0 0 9px;
+    border-radius: 50%;
+}
+
+.admin-event-indicator.info {
+    background: #3978ed;
+}
+
+.admin-event-indicator.warning {
+    background: #e6a333;
+}
+
+.admin-event-indicator.error {
+    background: #e45b5b;
+}
+
+.admin-event-content {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.admin-event-content strong {
+    color: #39465a;
+    font-size: 12px;
+}
+
+.admin-event-content small,
+.admin-event-row time {
+    color: #8490a3;
+    font-size: 10px;
 }
 
 .admin-section {

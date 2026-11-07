@@ -1,0 +1,86 @@
+@page "/admin/logs"
+
+@inject AdminLogDemoStore Store
+
+<PageTitle>Системные логи | Billboard</PageTitle>
+
+<div class="admin-logs-page">
+    <div class="admin-logs-heading">
+        <div>
+            <h1>Системные логи</h1>
+            <p>Журнал действий пользователей и состояния устройств</p>
+        </div>
+        <a class="admin-export-button" href="@ExportUrl" download="billboard-system-logs.csv">
+            ↓ Экспортировать CSV
+        </a>
+    </div>
+
+    <div class="admin-log-notice">
+        Демо-журнал: при подключении backend список и экспорт будут получать данные из API.
+    </div>
+
+    <section class="admin-logs-card">
+        <div class="admin-log-filters">
+            <label>
+                <span>Поиск по событиям</span>
+                <input type="search" @bind="Search" placeholder="Событие, пользователь или объект" />
+            </label>
+            <label>
+                <span>Уровень</span>
+                <select @bind="Level">
+                    <option>Все уровни</option>
+                    <option>Информация</option>
+                    <option>Предупреждение</option>
+                    <option>Ошибка</option>
+                </select>
+            </label>
+            <span class="admin-log-result-count">Найдено: @FilteredLogs.Count</span>
+        </div>
+
+        @if (FilteredLogs.Count == 0)
+        {
+            <div class="admin-log-empty">По заданным фильтрам событий не найдено.</div>
+        }
+        else
+        {
+            <div class="admin-log-table-wrap">
+                <table class="admin-log-table">
+                    <thead>
+                        <tr><th>Время</th><th>Уровень</th><th>Событие</th><th>Пользователь</th><th>Объект</th><th>Подробности</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var entry in FilteredLogs)
+                        {
+                            <tr @key="entry.Timestamp">
+                                <td>@entry.Timestamp.ToString("dd.MM.yyyy HH:mm:ss")</td>
+                                <td><span class="admin-log-level @LevelClass(entry.Level)">@entry.Level</span></td>
+                                <td><strong>@entry.Action</strong></td>
+                                <td>@entry.Actor</td>
+                                <td>@entry.Target</td>
+                                <td>@entry.Details</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    private string Search { get; set; } = string.Empty;
+    private string Level { get; set; } = "Все уровни";
+
+    private IReadOnlyList<AdminLogEntry> FilteredLogs =>
+        Store.GetLogs(Search, Level);
+
+    private string ExportUrl =>
+        Store.CreateCsvDataUrl(Search, Level);
+
+    private static string LevelClass(string level) => level switch
+    {
+        "Ошибка" => "error",
+        "Предупреждение" => "warning",
+        _ => "info"
+    };
+}
