@@ -36,7 +36,7 @@
 				<label for="video">Видеоролик</label>
 
 				<select id="video" @bind="VideoId">
-					@foreach (var video in Store.Videos)
+					@foreach (var video in Panel.GetVideos())
 					{
 						<option value="@video.Id">
 							@video.Title (@video.Duration.TotalSeconds сек.)
@@ -145,7 +145,7 @@
 
 	protected override void OnInitialized()
 	{
-		VideoId = Store.Videos.FirstOrDefault()?.Id ?? 0;
+		VideoId = Panel.GetVideos().FirstOrDefault()?.Id ?? 0;
 		TargetName = TargetOptions.FirstOrDefault() ?? string.Empty;
 	}
 

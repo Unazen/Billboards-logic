@@ -9,7 +9,8 @@ public enum ScheduleTargetType
 public record AdVideo(
     int Id,
     string Title,
-    TimeSpan Duration
+    TimeSpan Duration,
+    int OwnerId = 1
 );
 
 public record ScheduleItem(
@@ -30,9 +31,12 @@ public class ScheduleDemoStore
     private readonly List<AdVideo> _videos =
     [
         new(1, "Реклама автомобиля", TimeSpan.FromSeconds(30)),
-        new(2, "Реклама магазина", TimeSpan.FromSeconds(15)),
+        new(2, "Реклама магазина", TimeSpan.FromSeconds(15), 2),
         new(3, "Реклама смартфона", TimeSpan.FromSeconds(20)),
-        new(4, "Реклама ресторана", TimeSpan.FromSeconds(25))
+        new(4, "Реклама ресторана", TimeSpan.FromSeconds(25)),
+        new(5, "Осенняя коллекция", TimeSpan.FromSeconds(20), 2),
+        new(6, "Скидки недели", TimeSpan.FromSeconds(15), 2),
+        new(7, "Городской фестиваль", TimeSpan.FromSeconds(30), 3)
     ];
 
     private readonly List<ScheduleItem> _schedules =
@@ -77,6 +81,9 @@ public class ScheduleDemoStore
 
     public IReadOnlyList<AdVideo> Videos => _videos;
 
+    public IReadOnlyList<AdVideo> GetVideosForOwner(int ownerId) =>
+        _videos.Where(video => video.OwnerId == ownerId).ToList();
+
     public IReadOnlyList<ScheduleItem> Schedules => _schedules;
 
     public event Action? Changed;
@@ -85,6 +92,10 @@ public class ScheduleDemoStore
     {
         return _videos.FirstOrDefault(video => video.Id == videoId);
     }
+
+    public AdVideo? GetVideo(int videoId, int ownerId) =>
+        _videos.FirstOrDefault(video =>
+            video.Id == videoId && video.OwnerId == ownerId);
 
     public void ToggleActive(int id, int? ownerId = null)
     {
@@ -142,7 +153,7 @@ public class ScheduleDemoStore
             return false;
         }
 
-        if (GetVideo(videoId) is null)
+        if (GetVideo(videoId, ownerId) is null)
         {
             error = "Выбранный видеоролик не найден.";
             return false;
@@ -233,7 +244,7 @@ public class ScheduleDemoStore
         return false;
     }
 
-    if (GetVideo(videoId) is null)
+    if (GetVideo(videoId, ownerId) is null)
     {
         error = "Выбранный видеоролик не найден.";
         return false;

@@ -32,6 +32,7 @@ public interface IClientPanelService
     IReadOnlyList<BillboardGroup> GetGroups();
     IReadOnlyList<BillboardDevice> GetGroupDevices(int groupId);
     IReadOnlyList<ScheduleItem> GetSchedules();
+    IReadOnlyList<AdVideo> GetVideos();
     IReadOnlyList<ClientMediaItem> GetMedia();
     IReadOnlyList<PlaybackStatistic> GetPlaybackStatistics();
     IReadOnlyList<ClientStream> GetStreams();
@@ -95,6 +96,9 @@ public sealed class ClientPanelDemoService(
             .Where(schedule => schedule.OwnerId == UserId)
             .OrderBy(schedule => schedule.StartAt)
             .ToList();
+
+    public IReadOnlyList<AdVideo> GetVideos() =>
+        scheduleStore.GetVideosForOwner(UserId);
 
     public IReadOnlyList<ClientMediaItem> GetMedia() =>
         _media

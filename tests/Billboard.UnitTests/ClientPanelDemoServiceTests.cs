@@ -16,6 +16,8 @@ public sealed class ClientPanelDemoServiceTests
         Assert.Equal(2, panel.UserId);
         Assert.Equal("Анна Смирнова", panel.UserName);
         Assert.All(panel.GetBillboards(), device => Assert.Equal(2, device.OwnerId));
+        Assert.All(panel.GetVideos(), video => Assert.Equal(2, video.OwnerId));
+        Assert.Contains(panel.GetVideos(), video => video.Id == 2);
         Assert.Equal(2, panel.GetMedia().Count);
         Assert.All(panel.GetMedia(), media => Assert.Equal(2, media.OwnerId));
 
