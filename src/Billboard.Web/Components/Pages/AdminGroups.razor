@@ -1,0 +1,277 @@
+@page "/admin/groups"
+
+@implements IDisposable
+
+@inject AdminDemoStore Store
+
+<PageTitle>Группы билбордов | Billboard</PageTitle>
+
+<div class="management-page">
+	<div class="management-heading">
+		<div>
+			<h1>Группы билбордов</h1>
+			<p>Объединение устройств для централизованного управления</p>
+		</div>
+
+		<span class="management-count">
+			Всего групп: @Store.Groups.Count
+		</span>
+	</div>
+
+	<section class="management-card">
+		<h2>Создать группу</h2>
+
+		@if (Store.Users.Count == 0)
+		{
+			<p>Сначала добавьте пользователя.</p>
+		}
+		else
+		{
+			<div class="add-form">
+				<input @bind="newGroupName" placeholder="Название группы" />
+
+				<input @bind="newGroupDescription" placeholder="Описание группы" />
+
+				<select @bind="selectedOwnerId">
+					@foreach (var user in Store.Users)
+					{
+						<option value="@user.Id">@user.Name</option>
+					}
+				</select>
+
+				<button class="primary-button" @onclick="AddGroup">
+					+ Создать группу
+				</button>
+			</div>
+		}
+
+		@if (!string.IsNullOrWhiteSpace(message))
+		{
+			<p class="form-message">@message</p>
+		}
+	</section>
+
+	@if (Store.Groups.Count == 0)
+	{
+		<section class="management-card">
+			<p class="empty-message">
+				Групп пока нет. Создайте первую группу выше.
+			</p>
+		</section>
+	}
+	else
+	{
+		@foreach (var group in Store.Groups)
+		{
+			var owner = Store.Users.FirstOrDefault(
+				user => user.Id == group.OwnerId);
+
+			var groupDevices = Store.GetDevicesForGroup(group.Id);
+			var availableDevices = Store.GetAvailableDevicesForGroup(group.Id);
+
+			<section class="management-card group-card" @key="group.Id">
+				<div class="group-heading">
+					<div>
+						<h2>@group.Name</h2>
+
+						<p>
+							@(string.IsNullOrWhiteSpace(group.Description)
+								? "Описание отсутствует"
+								: group.Description)
+						</p>
+
+						<span class="group-owner">
+							Владелец: @(owner?.Name ?? "Неизвестен")
+						</span>
+					</div>
+
+					<button class="delete-button" @onclick="() => RemoveGroup(group.Id)">
+						Удалить группу
+					</button>
+				</div>
+
+				<div class="group-devices">
+					<h3>Устройства в группе (@groupDevices.Count)</h3>
+
+					@if (groupDevices.Count == 0)
+					{
+						<p class="empty-message">
+							В этой группе пока нет устройств.
+						</p>
+					}
+					else
+					{
+						<div class="table-wrapper">
+							<table class="management-table">
+								<thead>
+									<tr>
+										<th>Название</th>
+										<th>Местоположение</th>
+										<th>Состояние</th>
+										<th>Действие</th>
+									</tr>
+								</thead>
+
+								<tbody>
+									@foreach (var device in groupDevices)
+									{
+										<tr @key="device.Id">
+											<td>@device.Name</td>
+											<td>@device.Location</td>
+											<td>
+												@if (device.IsOnline)
+												{
+													<span class="status online">В сети</span>
+												}
+												else
+												{
+													<span class="status offline">Не в сети</span>
+												}
+											</td>
+											<td>
+												<button class="delete-button" @onclick="() => RemoveDevice(group.Id, device.Id)">
+													Убрать
+												</button>
+											</td>
+										</tr>
+									}
+								</tbody>
+							</table>
+						</div>
+					}
+
+					<div class="add-device-form">
+						<h3>Добавить устройство</h3>
+
+						@if (availableDevices.Count == 0)
+						{
+							<p class="empty-message">
+								Нет свободных устройств этого владельца.
+							</p>
+						}
+						else
+						{
+							<select @bind="selectedDeviceIds[group.Id]">
+								<option value="0">Выберите устройство</option>
+
+								@foreach (var device in availableDevices)
+								{
+									<option value="@device.Id">
+										@device.Name — @device.Location
+									</option>
+								}
+							</select>
+
+							<button class="primary-button" @onclick="() => AddDevice(group.Id)">
+								+ Добавить
+							</button>
+						}
+					</div>
+				</div>
+			</section>
+		}
+	}
+</div>
+
+@code {
+	private string newGroupName = "";
+	private string newGroupDescription = "";
+	private int selectedOwnerId;
+	private string message = "";
+
+	private readonly Dictionary<int, int> selectedDeviceIds = [];
+
+   
+	protected override void OnInitialized()
+	{
+		if (Store.Users.Count > 0)
+			selectedOwnerId = Store.Users[0].Id;
+
+		EnsureSelectionEntries();
+		Store.Changed += OnStoreChanged;
+	}
+
+	private void EnsureSelectionEntries()
+	{
+		foreach (var group in Store.Groups)
+		{
+			if (!selectedDeviceIds.ContainsKey(group.Id))
+				selectedDeviceIds[group.Id] = 0;
+		}
+	}
+
+	private void OnStoreChanged()
+	{
+		EnsureSelectionEntries();
+		_ = InvokeAsync(StateHasChanged);
+	}
+
+	private void AddGroup()
+	{
+		if (string.IsNullOrWhiteSpace(newGroupName))
+		{
+			message = "Введите название группы.";
+			return;
+		}
+
+		var result = Store.AddGroup(
+			newGroupName,
+			newGroupDescription,
+			selectedOwnerId
+		);
+
+		if (!result)
+		{
+			message = "Не удалось создать группу. Проверьте владельца.";
+			return;
+		}
+		var createdGroup = Store.Groups.Last();
+		selectedDeviceIds[createdGroup.Id] = 0;
+
+		newGroupName = "";
+		newGroupDescription = "";
+		message = "Группа успешно создана.";
+	}
+
+	private void AddDevice(int groupId)
+	{
+		if (!selectedDeviceIds.TryGetValue(groupId, out var deviceId) ||
+			deviceId == 0)
+		{
+			message = "Сначала выберите устройство.";
+			return;
+		}
+
+		if (!Store.AddDeviceToGroup(groupId, deviceId))
+		{
+			message = "Не удалось добавить устройство в группу.";
+			return;
+		}
+
+		selectedDeviceIds[groupId] = 0;
+		message = "Устройство добавлено в группу.";
+	}
+
+	private void RemoveDevice(int groupId, int deviceId)
+	{
+		Store.RemoveDeviceFromGroup(groupId, deviceId);
+		message = "Устройство удалено из группы.";
+	}
+
+	private void RemoveGroup(int groupId)
+	{
+		Store.RemoveGroup(groupId);
+		selectedDeviceIds.Remove(groupId);
+		message = "Группа удалена.";
+	}
+
+	private int GetSelectedDeviceId(int groupId)
+	{
+		return selectedDeviceIds.TryGetValue(groupId, out var id) ? id : 0;
+	}
+
+	public void Dispose()
+	{
+		Store.Changed -= OnStoreChanged;
+	}
+}

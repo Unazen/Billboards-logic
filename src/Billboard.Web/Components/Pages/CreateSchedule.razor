@@ -1,0 +1,158 @@
+@page "/schedules/create"
+
+@using Billboard.Web.Services
+
+@inject ScheduleDemoStore Store
+@inject NavigationManager Navigation
+
+<PageTitle>Создание расписания | Billboard</PageTitle>
+
+<div class="create-page">
+	<div class="page-heading">
+		<div>
+			<h1>Создание расписания</h1>
+			<p>Настройте рекламную трансляцию на выбранном билборде</p>
+		</div>
+
+		<a href="/schedules" class="back-button">
+			← Назад к расписаниям
+		</a>
+	</div>
+
+	<section class="form-section">
+		<h2>Основная информация</h2>
+
+		<form @onsubmit="HandleCreateSchedule" @onsubmit:preventDefault>
+
+			<div class="form-group">
+				<label for="schedule-name">Название расписания</label>
+
+				<input id="schedule-name" type="text" @bind="Name" maxlength="100"
+					   placeholder="Например: Реклама автомобиля" />
+			</div>
+
+			<div class="form-group">
+				<label for="video">Видеоролик</label>
+
+				<select id="video" @bind="VideoId">
+					@foreach (var video in Store.Videos)
+					{
+						<option value="@video.Id">
+							@video.Title (@video.Duration.TotalSeconds сек.)
+						</option>
+					}
+				</select>
+			</div>
+
+			<div class="form-group">
+				<label for="target-type">Тип назначения</label>
+
+				<select id="target-type" @bind="TargetType">
+					<option value="@ScheduleTargetType.Device">
+						Отдельное устройство
+					</option>
+
+					<option value="@ScheduleTargetType.Group">
+						Группа устройств
+					</option>
+				</select>
+			</div>
+
+			<div class="form-group">
+				<label for="target-name">
+					@(TargetType == ScheduleTargetType.Device
+						? "Название устройства"
+						: "Название группы")
+				</label>
+
+				<input id="target-name" type="text" @bind="TargetName" maxlength="100"
+					   placeholder="Например: Билборд №1" />
+			</div>
+
+			<h2 class="period-heading">Период действия</h2>
+
+			<div class="date-fields">
+				<div class="form-group">
+					<label for="start-date">Дата начала</label>
+
+					<input id="start-date" type="date" @bind="StartAt" @bind:format="yyyy-MM-dd" />
+				</div>
+
+				<div class="form-group">
+					<label for="end-date">Дата окончания</label>
+
+					<input id="end-date" type="date" @bind="EndAt" @bind:format="yyyy-MM-dd" />
+				</div>
+			</div>
+
+			<div class="form-group">
+				<label for="plays-per-hour">Количество показов в час</label>
+
+				<input id="plays-per-hour" type="number" min="1" @bind="PlaysPerHour" />
+			</div>
+
+			@if (!string.IsNullOrWhiteSpace(ErrorMessage))
+			{
+				<div class="error-message">
+					@ErrorMessage
+				</div>
+			}
+
+			<div class="form-actions">
+				<a href="/schedules" class="cancel-button">
+					Отмена
+				</a>
+
+				<button type="submit" class="submit-button">
+					Создать расписание
+				</button>
+			</div>
+		</form>
+	</section>
+</div>
+
+@code {
+	private string Name { get; set; } = string.Empty;
+
+	private int VideoId { get; set; }
+
+	private ScheduleTargetType TargetType { get; set; }
+		= ScheduleTargetType.Device;
+
+	private string TargetName { get; set; } = string.Empty;
+
+	private DateTime StartAt { get; set; } = DateTime.Today;
+
+	private DateTime EndAt { get; set; } = DateTime.Today.AddDays(7);
+
+	private int PlaysPerHour { get; set; } = 10;
+
+	private string ErrorMessage { get; set; } = string.Empty;
+
+	protected override void OnInitialized()
+	{
+		VideoId = Store.Videos.FirstOrDefault()?.Id ?? 0;
+	}
+
+	private void HandleCreateSchedule()
+	{
+		var success = Store.TryAddSchedule(
+			Name,
+			VideoId,
+			TargetName,
+			TargetType,
+			StartAt,
+			EndAt,
+			PlaysPerHour,
+			out var error
+		);
+
+		if (!success)
+		{
+			ErrorMessage = error;
+			return;
+		}
+
+		Navigation.NavigateTo("/schedules");
+	}
+}

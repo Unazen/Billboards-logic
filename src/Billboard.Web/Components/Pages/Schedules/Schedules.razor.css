@@ -157,3 +157,13 @@
         flex-direction: column;
     }
 }
+
+
+.action-button.edit {
+    color: #2563eb;
+    text-decoration: none;
+}
+
+.action-button.edit:hover {
+    background: #eff6ff;
+}
