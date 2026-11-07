@@ -1,0 +1,68 @@
+@page "/my-groups"
+@inject IClientPanelService Panel
+
+<PageTitle>Мои группы устройств | Billboard</PageTitle>
+
+<div class="client-page">
+    <div class="client-page-heading">
+        <div>
+            <h1>Мои группы устройств</h1>
+            <p>Устройства, объединённые для удобного управления расписаниями</p>
+        </div>
+        <span class="client-count">Групп устройств: @MyGroups.Count</span>
+    </div>
+
+    <div class="client-demo-note">
+        <span aria-hidden="true">ⓘ</span>
+        Тестовые группы доступны только владельцу входящих в них устройств.
+    </div>
+
+    @if (MyGroups.Count == 0)
+    {
+        <section class="client-panel client-empty-state">
+            <h2>Групп устройств пока нет</h2>
+            <p>Создание и настройка групп будет доступно после подключения управления группами.</p>
+        </section>
+    }
+    else
+    {
+        <div class="client-group-grid">
+            @foreach (var group in MyGroups)
+            {
+                var devices = Panel.GetGroupDevices(group.Id);
+                <section class="client-panel client-group-card" @key="group.Id">
+                    <div class="client-group-title">
+                        <span class="client-stat-icon violet">▤</span>
+                        <div>
+                            <h2>@group.Name</h2>
+                            <span>@devices.Count устройств</span>
+                        </div>
+                    </div>
+                    <p class="client-group-description">@group.Description</p>
+                    @if (devices.Count == 0)
+                    {
+                        <div class="client-empty">В группе пока нет устройств.</div>
+                    }
+                    else
+                    {
+                        <div class="client-group-devices">
+                            @foreach (var device in devices)
+                            {
+                                <div class="client-group-device" @key="device.Id">
+                                    <span>▣</span>
+                                    <strong>@device.Name</strong>
+                                    <span class="client-status @(device.IsOnline ? "online" : "offline")"><i></i>@(device.IsOnline ? "В сети" : "Не в сети")</span>
+                                </div>
+                            }
+                        </div>
+                    }
+                    <a class="client-table-link" href="/schedules">Расписания группы →</a>
+                </section>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<BillboardGroup> MyGroups => Panel.GetGroups();
+}

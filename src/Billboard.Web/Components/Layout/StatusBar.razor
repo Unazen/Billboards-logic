@@ -1,23 +1,30 @@
 @implements IDisposable
 @inject AdminDemoStore Store
+@inject NavigationManager Navigation
 
-<footer class="status-bar">
-	<div class="status-connection">
-		<span class="status-dot"></span>
-		Подключение активно
-	</div>
+@inject NavigationManager Navigation
 
-	<div class="status-metrics">
-		<span>Пользователей: <strong>@Store.Users.Count</strong></span>
-		<span>Устройств: <strong>@Store.Devices.Count</strong></span>
-		<span>Файлов: <strong>@Store.UploadedFilesCount</strong></span>
-	</div>
-</footer>
+@if (IsAdminArea)
+{
+	<footer class="status-bar">
+		<div class="status-connection">
+			<span class="status-dot"></span>
+			Подключение активно
+		</div>
+
+		<div class="status-metrics">
+			<span>Пользователей: <strong>@Store.Users.Count</strong></span>
+			<span>Устройств: <strong>@Store.Devices.Count</strong></span>
+			<span>Файлов: <strong>@Store.UploadedFilesCount</strong></span>
+		</div>
+	</footer>
+}
 
 @code {
 	protected override void OnInitialized()
 	{
 		Store.Changed += OnStoreChanged;
+		Navigation.LocationChanged += OnLocationChanged;
 	}
 
 	private void OnStoreChanged()
@@ -25,8 +32,17 @@
 		_ = InvokeAsync(StateHasChanged);
 	}
 
+	private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs args)
+	{
+		_ = InvokeAsync(StateHasChanged);
+	}
+
+	private bool IsAdminArea =>
+		new Uri(Navigation.Uri).AbsolutePath.StartsWith("/admin", StringComparison.OrdinalIgnoreCase);
+
 	public void Dispose()
 	{
 		Store.Changed -= OnStoreChanged;
+		Navigation.LocationChanged -= OnLocationChanged;
 	}
 }

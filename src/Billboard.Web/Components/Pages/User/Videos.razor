@@ -1,304 +1,177 @@
-
 @page "/videos"
 
 @using Microsoft.AspNetCore.Components.Forms
 @using System.IO
 
-<PageTitle>Медиатека</PageTitle>
+@inject IClientPanelService Panel
+
+<PageTitle>Мои рекламные материалы | Billboard</PageTitle>
 
 <div class="videos-page">
-
     <div class="videos-header">
         <div>
-            <h1>Медиатека</h1>
-            <p>Управление рекламными видеороликами</p>
+            <h1>Мои рекламные материалы</h1>
+            <p>Тестовая медиатека рекламных роликов</p>
         </div>
-
         <div class="videos-header-info">
-            <span class="storage-label">Медиафайлы</span>
-            <span class="storage-value">@videos.Count файлов</span>
+            <span class="storage-label">Материалов в библиотеке</span>
+            <span class="storage-value">@Media.Count файлов</span>
         </div>
     </div>
 
     <div class="video-stats">
-
         <div class="video-stat-card">
             <div class="stat-icon purple">▣</div>
-            <div>
-                <span>Всего видео</span>
-                <strong>@videos.Count</strong>
-            </div>
+            <div><span>Всего материалов</span><strong>@Media.Count</strong></div>
         </div>
-
         <div class="video-stat-card">
-            <div class="stat-icon blue">↑</div>
-            <div>
-                <span>Ожидают загрузки</span>
-                <strong>@videos.Count</strong>
-            </div>
+            <div class="stat-icon blue">▶</div>
+            <div><span>Готовы в демо-режиме</span><strong>@Media.Count(item => item.Status == "Готово")</strong></div>
         </div>
-
         <div class="video-stat-card">
-            <div class="stat-icon green">✓</div>
-            <div>
-                <span>Загружено</span>
-                <strong>0</strong>
-            </div>
+            <div class="stat-icon green">↗</div>
+            <div><span>Новые записи</span><strong>@Media.Count(item => item.Status != "Готово")</strong></div>
         </div>
-
     </div>
 
     <div class="upload-section">
-
         <div class="section-heading">
             <div>
-                <h2>Добавить видео</h2>
-                <p>Выберите рекламные ролики с вашего устройства</p>
+                <h2>Добавить рекламный материал</h2>
+                <p>Выберите ролики для тестовой медиатеки</p>
             </div>
         </div>
-
         <label class="upload-zone">
-
-            <InputFile OnChange="OnFilesSelected"
-                       multiple
-                       accept=".mp4,.webm,.mov,.mkv"
-                       class="upload-input" />
-
+            <InputFile OnChange="OnFilesSelected" multiple accept=".mp4,.webm,.mov,.mkv" class="upload-input" />
             <div class="upload-content">
                 <div class="upload-icon">↑</div>
-
                 <h3>Выберите видеофайлы</h3>
-
-                <p>
-                    Нажмите здесь, чтобы выбрать файлы
-                </p>
-
-                <span class="supported-formats">
-                    Поддерживаемые форматы: MP4, WEBM, MOV, MKV
-                </span>
+                <p>Нажмите здесь, чтобы добавить записи в тестовую медиатеку</p>
+                <span class="supported-formats">Поддерживаются MP4, WEBM, MOV, MKV</span>
             </div>
-
         </label>
-
         @if (!string.IsNullOrWhiteSpace(statusMessage))
         {
-            <div class="upload-message">@statusMessage</div>
+            <div class="upload-message" role="status">@statusMessage</div>
         }
-
     </div>
 
     <div class="library-section">
-
         <div class="library-heading">
             <div>
-                <h2>Мои видео</h2>
-                <p>Список рекламных материалов</p>
+                <h2>Моя медиатека</h2>
+                <p>Список материалов текущего демо-пользователя</p>
             </div>
-
-            <input class="video-search"
-                   type="text"
-                   placeholder="Поиск видео..."
-                   @bind="searchText" />
+            <input class="video-search" type="search" placeholder="Поиск видео..." @bind="searchText" />
         </div>
 
-        @if (FilteredVideos.Any())
+        @if (FilteredMedia.Any())
         {
             <div class="video-table-wrapper">
-
                 <table class="video-table">
-
                     <thead>
-                        <tr>
-                            <th>Название</th>
-                            <th>Размер</th>
-                            <th>Дата добавления</th>
-                            <th>Статус</th>
-                            <th></th>
-                        </tr>
+                        <tr><th>Название</th><th>Размер</th><th>Дата добавления</th><th>Статус</th><th></th></tr>
                     </thead>
-
                     <tbody>
-
-                        @foreach (var video in FilteredVideos)
+                        @foreach (var item in FilteredMedia)
                         {
-                            <tr @key="video.Id">
-
+                            <tr @key="item.Id">
                                 <td>
                                     <div class="video-name">
                                         <div class="video-file-icon">▶</div>
-                                        <div>
-                                            <strong>@video.Name</strong>
-                                            <span>@video.Extension</span>
-                                        </div>
+                                        <div><strong>@item.Name</strong><span>@item.Extension</span></div>
                                     </div>
                                 </td>
-
-                                <td>@FormatSize(video.Size)</td>
-
-                                <td>@video.AddedAt.ToString("dd.MM.yyyy HH:mm")</td>
-
+                                <td>@FormatSize(item.Size)</td>
+                                <td>@item.AddedAt.ToString("dd.MM.yyyy HH:mm")</td>
+                                <td><span class="video-status">@item.Status</span></td>
                                 <td>
-                                    <span class="video-status">
-                                        Ожидает загрузки
-                                    </span>
+                                    <button class="delete-button" title="Удалить из демо-библиотеки"
+                                            @onclick="() => RemoveMedia(item.Id)">✕</button>
                                 </td>
-
-                                <td>
-                                    <button class="delete-button"
-                                            title="Удалить из списка"
-                                            @onclick="() => RemoveVideo(video.Id)">
-                                        ✕
-                                    </button>
-                                </td>
-
                             </tr>
                         }
-
                     </tbody>
-
                 </table>
-
             </div>
         }
         else
         {
             <div class="empty-library">
                 <div class="empty-icon">▣</div>
-
-                <h3>
-                    @(videos.Count == 0
-                        ? "Медиатека пока пуста"
-                        : "Видео не найдены")
-                </h3>
-
-                <p>
-                    @(videos.Count == 0
-                        ? "Добавьте рекламные ролики, чтобы они появились здесь."
-                        : "Попробуйте изменить поисковый запрос.")
-                </p>
+                <h3>@(Media.Count == 0 ? "Медиатека пока пуста" : "Видео не найдены")</h3>
+                <p>@(Media.Count == 0 ? "Добавьте рекламные ролики, чтобы они появились здесь." : "Попробуйте изменить поисковый запрос.")</p>
             </div>
         }
 
-        @if (videos.Count > 0)
+        @if (Media.Count > 0)
         {
             <div class="upload-footer">
-                <span>Подготовлено файлов: @videos.Count</span>
-
-                <button class="clear-button"
-                        @onclick="ClearVideos">
-                    Очистить список
-                </button>
+                <span>Записей в демо-библиотеке: @Media.Count</span>
+                <button class="clear-button" @onclick="ClearMedia">Очистить список</button>
             </div>
         }
-
     </div>
 
     <div class="api-notice">
-        <strong>Информация</strong>
-        <p>
-            Сейчас файлы добавляются в интерфейс локально.
-            Отправка на сервер хранения MinIO будет подключена
-            после интеграции с API.
-        </p>
+        <strong>Демо-режим</strong>
+        <p>Здесь сохраняются только метаданные тестовых материалов в памяти приложения. Файлы не загружаются; для реального хранилища предусмотрен API <code>POST /api/v1/videos/uploads</code>.</p>
     </div>
-
 </div>
 
 @code {
-
-    private List<VideoItem> videos = new();
-
     private string searchText = "";
-
     private string statusMessage = "";
+    private IReadOnlyList<ClientMediaItem> Media => Panel.GetMedia();
+    private IEnumerable<ClientMediaItem> FilteredMedia =>
+        Media.Where(item => item.Name.Contains(searchText, StringComparison.OrdinalIgnoreCase));
 
-    private IEnumerable<VideoItem> FilteredVideos =>
-        videos.Where(v =>
-            v.Name.Contains(searchText, StringComparison.OrdinalIgnoreCase));
-
-    private void OnFilesSelected(InputFileChangeEventArgs e)
+    private void OnFilesSelected(InputFileChangeEventArgs args)
     {
         statusMessage = "";
+        var added = 0;
+        var rejected = 0;
 
-        var selectedFiles = e.GetMultipleFiles();
-
-        int added = 0;
-        int rejected = 0;
-
-        foreach (var file in selectedFiles)
+        foreach (var file in args.GetMultipleFiles())
         {
-            string extension = Path.GetExtension(file.Name).ToLowerInvariant();
-
-            string[] allowedExtensions =
-            {
-                ".mp4", ".webm", ".mov", ".mkv"
-            };
-
-            if (!allowedExtensions.Contains(extension))
+            var extension = Path.GetExtension(file.Name).ToLowerInvariant();
+            if (extension is not (".mp4" or ".webm" or ".mov" or ".mkv"))
             {
                 rejected++;
                 continue;
             }
 
-            bool alreadyExists = videos.Any(v =>
-                v.Name == file.Name && v.Size == file.Size);
-
-            if (alreadyExists)
+            if (Media.Any(item => item.Name == file.Name && item.Size == file.Size))
                 continue;
 
-            videos.Add(new VideoItem
-            {
-                Id = Guid.NewGuid(),
-                Name = file.Name,
-                Extension = extension,
-                Size = file.Size,
-                AddedAt = DateTime.Now
-            });
-
+            Panel.AddMedia(file.Name, extension, file.Size);
             added++;
         }
 
+        var messages = new List<string>();
         if (added > 0)
-            statusMessage = $"Добавлено файлов: {added}";
-
+            messages.Add($"Добавлено записей: {added}. Файлы не загружались.");
         if (rejected > 0)
-            statusMessage += $" Не поддерживается формат: {rejected} файлов.";
+            messages.Add($"Пропущено файлов с неподдерживаемым форматом: {rejected}.");
+        if (messages.Count == 0)
+            messages.Add("Новые записи не добавлены.");
 
-        if (added == 0 && rejected == 0)
-            statusMessage = "Новые файлы не добавлены.";
+        statusMessage = string.Join(" ", messages);
     }
 
-    private void RemoveVideo(Guid id)
+    private void RemoveMedia(Guid id) => Panel.RemoveMedia(id);
+
+    private void ClearMedia()
     {
-        videos.RemoveAll(v => v.Id == id);
+        Panel.ClearMedia();
+        statusMessage = "Демо-библиотека очищена.";
     }
 
-    private void ClearVideos()
+    private static string FormatSize(long bytes)
     {
-        videos.Clear();
-        statusMessage = "Список очищен.";
-    }
-
-    private string FormatSize(long bytes)
-    {
-        double mb = bytes / 1024d / 1024d;
-
-        if (mb >= 1024)
-            return $"{mb / 1024:F2} ГБ";
-
-        return $"{mb:F2} МБ";
-    }
-
-    private class VideoItem
-    {
-        public Guid Id { get; set; }
-
-        public string Name { get; set; } = "";
-
-        public string Extension { get; set; } = "";
-
-        public long Size { get; set; }
-
-        public DateTime AddedAt { get; set; }
+        var megabytes = bytes / 1024d / 1024d;
+        return megabytes >= 1024
+            ? $"{megabytes / 1024:F2} ГБ"
+            : $"{megabytes:F2} МБ";
     }
 }

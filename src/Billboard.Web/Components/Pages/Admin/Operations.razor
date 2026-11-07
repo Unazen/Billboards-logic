@@ -1,0 +1,78 @@
+@page "/admin/logs"
+@page "/admin/monitoring"
+@page "/admin/statistics"
+
+@inject AdminDemoStore Store
+@inject NavigationManager Navigation
+
+<PageTitle>@Title | Billboard</PageTitle>
+
+<div class="client-page admin-operations">
+    <div class="client-page-heading">
+        <div><h1>@Title</h1><p>@Description</p></div>
+        <span class="client-count">Демо-данные</span>
+    </div>
+
+    @if (CurrentPath == "/admin/monitoring")
+    {
+        <section class="client-panel">
+            <div class="client-responsive-table">
+                <table class="client-table">
+                    <thead><tr><th>Устройство</th><th>Местоположение</th><th>Владелец</th><th>Состояние</th></tr></thead>
+                    <tbody>
+                        @foreach (var device in Store.Devices)
+                        {
+                            var owner = Store.Users.FirstOrDefault(user => user.Id == device.OwnerId);
+                            <tr @key="device.Id">
+                                <td><strong>@device.Name</strong><small>Устройство #@device.Id</small></td>
+                                <td>@device.Location</td><td>@(owner?.Name ?? "Неизвестен")</td>
+                                <td><span class="client-status @(device.IsOnline ? "online" : "offline")"><i></i>@(device.IsOnline ? "В сети" : "Не в сети")</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+    else if (CurrentPath == "/admin/statistics")
+    {
+        <div class="client-stat-grid client-stat-grid-three">
+            <div class="client-stat-card"><span class="client-stat-icon blue">♙</span><span class="client-stat-label">Пользователи</span><strong>@Store.Users.Count</strong><small>Тестовые учётные записи</small></div>
+            <div class="client-stat-card"><span class="client-stat-icon violet">▣</span><span class="client-stat-label">Устройства</span><strong>@Store.Devices.Count</strong><small>@Store.Devices.Count(device => device.IsOnline) в сети</small></div>
+            <div class="client-stat-card"><span class="client-stat-icon green">▤</span><span class="client-stat-label">Группы устройств</span><strong>@Store.Groups.Count</strong><small>В тестовой системе</small></div>
+        </div>
+    }
+    else
+    {
+        <section class="client-panel">
+            <div class="client-responsive-table">
+                <table class="client-table">
+                    <thead><tr><th>Событие</th><th>Объект</th><th>Время</th><th>Результат</th></tr></thead>
+                    <tbody>
+                        <tr><td><strong>Устройство подключено</strong></td><td>Билборд №1</td><td>Сегодня, 10:42</td><td><span class="client-status online"><i></i>Успешно</span></td></tr>
+                        <tr><td><strong>Изменено расписание</strong></td><td>Автомобиль — Москва</td><td>Сегодня, 09:18</td><td><span class="client-status online"><i></i>Успешно</span></td></tr>
+                        <tr><td><strong>Устройство отключено</strong></td><td>Билборд №3</td><td>Сегодня, 08:54</td><td><span class="client-status offline"><i></i>Требует проверки</span></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+</div>
+
+@code {
+    private string CurrentPath => new Uri(Navigation.Uri).AbsolutePath.TrimEnd('/');
+
+    private string Title => CurrentPath switch
+    {
+        "/admin/logs" => "Системные логи",
+        "/admin/monitoring" => "Мониторинг билбордов",
+        _ => "Общая статистика системы"
+    };
+
+    private string Description => CurrentPath switch
+    {
+        "/admin/logs" => "Последние события системы (тестовые данные)",
+        "/admin/monitoring" => "Текущее состояние устройств и их владельцев",
+        _ => "Сводная информация по ресурсам системы"
+    };
+}

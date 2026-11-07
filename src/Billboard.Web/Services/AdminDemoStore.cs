@@ -37,12 +37,22 @@ public class AdminDemoStore
         new(4, "Билборд №4", 3, "Казань", true)
     ];
 
-    private readonly List<BillboardGroup> _groups = [];
-    private readonly List<BillboardGroupDevice> _groupDevices = [];
+    private readonly List<BillboardGroup> _groups =
+    [
+        new(1, "Центр города", "Билборды в центральной части города", 1),
+        new(2, "Набережная", "Рекламные поверхности у набережной", 2)
+    ];
+
+    private readonly List<BillboardGroupDevice> _groupDevices =
+    [
+        new(1, 1),
+        new(1, 2),
+        new(2, 3)
+    ];
 
     private int _nextUserId = 4;
     private int _nextDeviceId = 5;
-    private int _nextGroupId = 1;
+    private int _nextGroupId = 3;
 
     public IReadOnlyList<AdminUser> Users => _users;
     public IReadOnlyList<BillboardDevice> Devices => _devices;

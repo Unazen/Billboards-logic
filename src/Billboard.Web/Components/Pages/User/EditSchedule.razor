@@ -3,6 +3,7 @@
 @using Billboard.Web.Services
 
 @inject ScheduleDemoStore Store
+@inject IClientPanelService Panel
 @inject NavigationManager Navigation
 
 <PageTitle>Редактирование расписания | Billboard</PageTitle>
@@ -163,7 +164,7 @@
 
     protected override void OnParametersSet()
     {
-        ExistingSchedule = Store.Schedules.FirstOrDefault(s => s.Id == Id);
+        ExistingSchedule = Panel.GetSchedules().FirstOrDefault(s => s.Id == Id);
 
         if (ExistingSchedule is null)
             return;

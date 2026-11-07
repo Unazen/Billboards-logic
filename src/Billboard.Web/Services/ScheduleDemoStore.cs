@@ -21,7 +21,8 @@ public record ScheduleItem(
     DateTime StartAt,
     DateTime EndAt,
     int PlaysPerHour,
-    bool IsActive
+    bool IsActive,
+    int OwnerId = 1
 );
 
 public class ScheduleDemoStore
@@ -56,7 +57,8 @@ public class ScheduleDemoStore
             DateTime.Today,
             DateTime.Today.AddDays(14),
             8,
-            true
+            true,
+            2
         ),
         new(
             3,
@@ -182,7 +184,8 @@ public class ScheduleDemoStore
             startAt.Date,
             endAt.Date,
             playsPerHour,
-            true
+            true,
+            1
         ));
 
         error = string.Empty;

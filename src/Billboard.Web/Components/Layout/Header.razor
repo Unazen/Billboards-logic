@@ -1,7 +1,10 @@
+@implements IDisposable
+@inject NavigationManager Navigation
+
 <header class="header">
     <div>
-        <h1>Панель управления</h1>
-        <p>Обзор состояния системы Billboard</p>
+        <h1>@Title</h1>
+        <p>@Subtitle</p>
     </div>
 
     <div class="header-actions">
@@ -15,3 +18,40 @@
         </button>
     </div>
 </header>
+
+@code {
+    private string CurrentPath => new Uri(Navigation.Uri).AbsolutePath.TrimEnd('/');
+
+    private string Title => CurrentPath switch
+    {
+        "" => "Главная страница кабинета",
+        "/admin" => "Панель мониторинга",
+        "/admin/users" => "Управление пользователями",
+        "/admin/billboards" => "Управление устройствами",
+        "/admin/logs" => "Системные логи",
+        "/admin/monitoring" => "Мониторинг билбордов",
+        "/admin/statistics" => "Общая статистика системы",
+        "/admin/streams" or "/streams" => "Просмотр трансляций",
+        "/my-billboards" => "Мои билборды",
+        "/my-groups" => "Мои группы устройств",
+        "/videos" => "Мои рекламные материалы",
+        "/schedules" => "Мои расписания",
+        "/statistics" => "Статистика показов",
+        "/schedules/create" => "Создание расписания",
+        _ when CurrentPath.StartsWith("/schedules/edit/", StringComparison.OrdinalIgnoreCase) => "Редактирование расписания",
+        _ => "Кабинет пользователя"
+    };
+
+    private string Subtitle => CurrentPath.StartsWith("/admin", StringComparison.OrdinalIgnoreCase)
+        ? "Управление и состояние системы Billboard"
+        : "Управление вашими устройствами и рекламными размещениями";
+
+    protected override void OnInitialized() =>
+        Navigation.LocationChanged += OnLocationChanged;
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs args) =>
+        _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() =>
+        Navigation.LocationChanged -= OnLocationChanged;
+}

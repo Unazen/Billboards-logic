@@ -1,92 +1,138 @@
 @page "/"
-@using Billboard.Web.Components.Shared
+@inject IClientPanelService Panel
 
-<PageTitle>Панель управления | Billboard</PageTitle>
+<PageTitle>Главная страница кабинета | Billboard</PageTitle>
 
-<div class="dashboard">
-    <div class="welcome-section">
+<div class="client-dashboard">
+    <div class="client-welcome">
         <div>
-            <h2>Добро пожаловать!</h2>
-            <p>Вот что происходит в вашей системе сегодня.</p>
+            <span class="client-eyebrow">ЛИЧНЫЙ КАБИНЕТ</span>
+            <h2>Здравствуйте, @Panel.UserName</h2>
+            <p>Здесь собраны ваши билборды, материалы и результаты размещений.</p>
         </div>
-
-        <span class="current-date">@DateTime.Now.ToString("dd.MM.yyyy")</span>
+        <span class="client-date">@DateTime.Today.ToString("dd MMMM yyyy", System.Globalization.CultureInfo.GetCultureInfo("ru-RU"))</span>
     </div>
 
-    <div class="statistics-grid">
-        <StatCard Title="Всего билбордов" Value="38" Description="12 групп устройств" Icon="▣" />
-
-        <StatCard Title="Активные устройства" Value="34" Description="4 устройства отключены" Icon="◉" />
-
-        <StatCard Title="Рекламные ролики" Value="124" Description="В медиатеке" Icon="▷" />
-
-        <StatCard Title="Активные расписания" Value="18" Description="На текущий момент" Icon="◷" />
+    <div class="client-demo-note">
+        <span aria-hidden="true">ⓘ</span>
+        Демо-режим: данные тестовые и хранятся в памяти приложения.
     </div>
 
-    <div class="dashboard-grid">
-        <section class="dashboard-panel">
-            <div class="panel-header">
-                <h3>Состояние устройств</h3>
-                <a href="admin/billboards">Все устройства →</a>
+    <div class="client-stat-grid">
+        <a class="client-stat-card" href="/my-billboards">
+            <span class="client-stat-icon blue">▣</span>
+            <span class="client-stat-label">Мои билборды</span>
+            <strong>@Billboards.Count</strong>
+            <small>@OnlineBillboards из них в сети</small>
+        </a>
+        <a class="client-stat-card" href="/my-groups">
+            <span class="client-stat-icon violet">▤</span>
+            <span class="client-stat-label">Группы устройств</span>
+            <strong>@Groups.Count</strong>
+            <small>Управление устройствами группами</small>
+        </a>
+        <a class="client-stat-card" href="/videos">
+            <span class="client-stat-icon green">▶</span>
+            <span class="client-stat-label">Рекламные материалы</span>
+            <strong>@Panel.GetMedia().Count</strong>
+            <small>Материалов в демо-библиотеке</small>
+        </a>
+        <a class="client-stat-card" href="/schedules">
+            <span class="client-stat-icon orange">◷</span>
+            <span class="client-stat-label">Активные расписания</span>
+            <strong>@ActiveSchedules.Count</strong>
+            <small>Из @Schedules.Count всего</small>
+        </a>
+    </div>
+
+    <div class="client-dashboard-grid">
+        <section class="client-panel">
+            <div class="client-panel-heading">
+                <div>
+                    <h3>Состояние билбордов</h3>
+                    <p>Только устройства, закреплённые за вами</p>
+                </div>
+                <a href="/my-billboards">Все билборды →</a>
             </div>
 
-            <div class="device-summary">
-                <div class="device-summary-item">
-                    <span class="device-dot online"></span>
-                    <div>
-                        <strong>34</strong>
-                        <small>В сети</small>
-                    </div>
+            @if (Billboards.Count == 0)
+            {
+                <div class="client-empty">У вас пока нет билбордов.</div>
+            }
+            else
+            {
+                <div class="client-device-list">
+                    @foreach (var device in Billboards.Take(4))
+                    {
+                        <div class="client-device-row" @key="device.Id">
+                            <span class="client-device-icon">▣</span>
+                            <div class="client-device-info">
+                                <strong>@device.Name</strong>
+                                <small>@device.Location</small>
+                            </div>
+                            <span class="client-status @(device.IsOnline ? "online" : "offline")">
+                                <i></i>@(device.IsOnline ? "В сети" : "Не в сети")
+                            </span>
+                        </div>
+                    }
                 </div>
-
-                <div class="device-summary-item">
-                    <span class="device-dot offline"></span>
-                    <div>
-                        <strong>4</strong>
-                        <small>Не в сети</small>
-                    </div>
-                </div>
-            </div>
-
-            <div class="device-progress">
-                <div class="progress-bar">
-                    <div class="progress-value"></div>
-                </div>
-                <span>89% устройств работают</span>
-            </div>
+            }
         </section>
 
-        <section class="dashboard-panel">
-            <div class="panel-header">
-                <h3>Последние события</h3>
-                <a href="/admin/logs">Все события →</a>
+        <section class="client-panel">
+            <div class="client-panel-heading">
+                <div>
+                    <h3>Ваши расписания</h3>
+                    <p>Рекламные размещения на ваших устройствах</p>
+                </div>
+                <a href="/schedules">Все расписания →</a>
             </div>
 
-            <div class="activity-list">
-                <div class="activity-item">
-                    <span class="activity-icon success">✓</span>
-                    <div>
-                        <strong>Устройство подключено</strong>
-                        <small>Billboard #12 · 5 минут назад</small>
-                    </div>
+            @if (Schedules.Count == 0)
+            {
+                <div class="client-empty">Расписаний пока нет. Создайте первое размещение.</div>
+            }
+            else
+            {
+                <div class="client-schedule-list">
+                    @foreach (var schedule in Schedules.Take(3))
+                    {
+                        <div class="client-schedule-row" @key="schedule.Id">
+                            <span class="client-schedule-icon">◷</span>
+                            <div>
+                                <strong>@schedule.Name</strong>
+                                <small>@schedule.TargetName · до @schedule.EndAt.ToString("dd.MM.yyyy")</small>
+                            </div>
+                            <span class="client-status @(schedule.IsActive ? "online" : "paused")">
+                                <i></i>@(schedule.IsActive ? "Активно" : "Пауза")
+                            </span>
+                        </div>
+                    }
                 </div>
-
-                <div class="activity-item">
-                    <span class="activity-icon info">↑</span>
-                    <div>
-                        <strong>Загружен рекламный ролик</strong>
-                        <small>Summer.mp4 · 18 минут назад</small>
-                    </div>
-                </div>
-
-                <div class="activity-item">
-                    <span class="activity-icon warning">!</span>
-                    <div>
-                        <strong>Устройство отключено</strong>
-                        <small>Billboard #08 · 32 минуты назад</small>
-                    </div>
-                </div>
-            </div>
+            }
         </section>
     </div>
+
+    <section class="client-panel client-quick-actions">
+        <div class="client-panel-heading">
+            <div>
+                <h3>Быстрый доступ</h3>
+                <p>Основные разделы вашего кабинета</p>
+            </div>
+        </div>
+        <div class="client-action-links">
+            <a href="/my-billboards">Мои билборды <span>→</span></a>
+            <a href="/my-groups">Мои группы устройств <span>→</span></a>
+            <a href="/videos">Добавить рекламный материал <span>→</span></a>
+            <a href="/streams">Просмотреть трансляции <span>→</span></a>
+        </div>
+    </section>
 </div>
+
+@code {
+    private IReadOnlyList<BillboardDevice> Billboards => Panel.GetBillboards();
+    private IReadOnlyList<BillboardGroup> Groups => Panel.GetGroups();
+    private IReadOnlyList<ScheduleItem> Schedules => Panel.GetSchedules();
+    private IReadOnlyList<ScheduleItem> ActiveSchedules => Schedules.Where(schedule => schedule.IsActive).ToList();
+    private int OnlineBillboards => Billboards.Count(device => device.IsOnline);
+}
