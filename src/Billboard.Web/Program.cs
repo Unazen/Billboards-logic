@@ -4,13 +4,14 @@ using Billboard.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddSingleton<AdminLogDemoStore>();
+
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddSingleton<ScheduleDemoStore>();
 builder.Services.AddSingleton<AdminDemoStore>();
-builder.Services.AddSingleton<AdminLogDemoStore>();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
