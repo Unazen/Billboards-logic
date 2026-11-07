@@ -1,14 +1,15 @@
 @page "/schedules"
 @implements IDisposable
 @inject ScheduleDemoStore Store
+@inject IClientPanelService Panel
 
-<PageTitle>Расписания | Billboard</PageTitle>
+<PageTitle>Мои расписания | Billboard</PageTitle>
 
 <div class="management-page">
     <div class="page-heading">
         <div>
-            <h1>Расписания</h1>
-            <p>Управление рекламными трансляциями на билбордах</p>
+            <h1>Мои расписания</h1>
+            <p>Управление рекламными трансляциями на ваших устройствах</p>
         </div>
 
         <a href="/schedules/create" class="primary-button">
@@ -19,24 +20,24 @@
     <div class="schedule-stats">
         <div class="stat-card">
             <span>Всего расписаний</span>
-            <strong>@Store.Schedules.Count</strong>
+            <strong>@Panel.GetSchedules().Count</strong>
         </div>
 
         <div class="stat-card">
             <span>Активных</span>
-            <strong>@Store.Schedules.Count(s => s.IsActive)</strong>
+            <strong>@Panel.GetSchedules().Count(s => s.IsActive)</strong>
         </div>
 
         <div class="stat-card">
             <span>Приостановлено</span>
-            <strong>@Store.Schedules.Count(s => !s.IsActive)</strong>
+            <strong>@Panel.GetSchedules().Count(s => !s.IsActive)</strong>
         </div>
     </div>
 
     <section class="schedule-section">
         <h2>Все расписания</h2>
 
-        @if (Store.Schedules.Count == 0)
+        @if (Panel.GetSchedules().Count == 0)
         {
             <div class="empty-state">
                 Расписаний пока нет.
@@ -59,7 +60,7 @@
                     </thead>
 
                     <tbody>
-                        @foreach (var schedule in Store.Schedules)
+                        @foreach (var schedule in Panel.GetSchedules())
                         {
                             var video = Store.GetVideo(schedule.VideoId);
 
@@ -102,11 +103,11 @@
                                             Изменить
                                         </a>
 
-                                        <button class="action-button" @onclick="() => Store.ToggleActive(schedule.Id)">
+                                        <button class="action-button" @onclick="() => Store.ToggleActive(schedule.Id, Panel.UserId)">
                                             @(schedule.IsActive ? "Отключить" : "Включить")
                                         </button>
 
-                                        <button class="action-button danger" @onclick="() => Store.RemoveSchedule(schedule.Id)">
+                                        <button class="action-button danger" @onclick="() => Store.RemoveSchedule(schedule.Id, Panel.UserId)">
                                             Удалить
                                         </button>
                                     </div>

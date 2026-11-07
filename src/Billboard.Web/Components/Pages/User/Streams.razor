@@ -1,0 +1,75 @@
+@page "/streams"
+@page "/admin/streams"
+
+@inject IClientPanelService Panel
+@inject AdminDemoStore AdminStore
+@inject NavigationManager Navigation
+
+<PageTitle>Просмотр трансляций | Billboard</PageTitle>
+
+<div class="client-page">
+    <div class="client-page-heading">
+        <div>
+            <h1>Просмотр трансляций</h1>
+            <p>@(IsAdminArea ? "Демонстрационные экраны всех устройств системы" : "Демонстрационные экраны ваших билбордов")</p>
+        </div>
+        <span class="client-count">Устройств: @StreamItems.Count</span>
+    </div>
+
+    <div class="client-demo-note">
+        <span aria-hidden="true">ⓘ</span>
+        Это макет просмотра, а не реальный видеопоток. Подключение устройства появится вместе с API трансляций.
+    </div>
+
+    @if (StreamItems.Count == 0)
+    {
+        <section class="client-panel client-empty-state">
+            <h2>Нет доступных устройств</h2>
+            <p>Для просмотра трансляций сначала добавьте или назначьте билборд.</p>
+        </section>
+    }
+    else
+    {
+        <div class="client-stream-grid">
+            @foreach (var stream in StreamItems)
+            {
+                var online = stream.Device.IsOnline;
+                <section class="client-panel client-stream-card" @key="stream.Device.Id">
+                    <div class="client-stream-preview @(online ? "playing" : "no-signal")">
+                        @if (online)
+                        {
+                            <span class="client-live-tag"><i></i>ДЕМО-ЭФИР</span>
+                            <div class="client-preview-content">
+                                <span class="client-preview-mark">B</span>
+                                <strong>@stream.CurrentCreative</strong>
+                                <small>Предварительный экран билборда</small>
+                            </div>
+                            <span class="client-preview-controls">▶　▰ ▰ ▰　⌗</span>
+                        }
+                        else
+                        {
+                            <div class="client-no-signal-content"><span>◉</span><strong>Нет сигнала</strong></div>
+                        }
+                    </div>
+                    <div class="client-stream-meta">
+                        <div><strong>@stream.Device.Name</strong><small>@stream.Device.Location</small></div>
+                        <span class="client-status @(online ? "online" : "offline")"><i></i>@(online ? "В сети" : "Не в сети")</span>
+                    </div>
+                    <div class="client-stream-updated">Обновлено @stream.LastUpdated.ToString("HH:mm")</div>
+                </section>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private bool IsAdminArea =>
+        new Uri(Navigation.Uri).AbsolutePath.StartsWith("/admin", StringComparison.OrdinalIgnoreCase);
+
+    private IReadOnlyList<ClientStream> StreamItems => IsAdminArea
+        ? AdminStore.Devices.Select(device => new ClientStream(
+            device,
+            device.IsOnline ? "Демо-трансляция" : "Нет сигнала",
+            DateTime.Now.AddMinutes(device.IsOnline ? -2 : -37))).ToList()
+        : Panel.GetStreams();
+}

@@ -92,6 +92,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
+    flex-wrap: wrap;
 }
 
 .user-avatar {
@@ -116,6 +117,24 @@
     font-size: 10px;
 }
 
+.account-switch-link {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 7px;
+    color: #b5bfd0;
+    font-size: 11px;
+    text-decoration: none;
+}
+
+.account-switch-link:hover,
+.account-switch-link.active {
+    background: #26344c;
+    color: #fff;
+}
+
 @media (max-width: 768px) {
     .sidebar {
         width: 72px;
@@ -126,7 +145,8 @@
     .brand-name,
     .menu-label,
     .menu-link span:not(.menu-icon),
-    .user-info {
+    .user-info,
+    .account-switch-link span:not(:first-child) {
         display: none;
     }
 
@@ -142,5 +162,11 @@
 
     .sidebar-footer {
         justify-content: center;
+    }
+
+    .account-switch-link {
+        width: auto;
+        justify-content: center;
+        padding: 8px;
     }
 }

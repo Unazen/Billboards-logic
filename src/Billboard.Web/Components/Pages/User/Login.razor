@@ -1,0 +1,60 @@
+@page "/login"
+
+@inject DemoUserSession Session
+@inject NavigationManager Navigation
+
+<PageTitle>Вход в систему | Billboard</PageTitle>
+
+<div class="login-page">
+    <section class="login-card">
+        <div class="login-brand-mark">B</div>
+        <span class="login-eyebrow">ДЕМО-ДОСТУП</span>
+        <h1>Вход в кабинет</h1>
+        <p class="login-description">Выберите тестовую учётную запись, чтобы открыть пользовательский кабинет или панель администратора.</p>
+
+        <form @onsubmit="SignIn" @onsubmit:preventDefault>
+            <label for="demo-account">Тестовый пользователь</label>
+            <select id="demo-account" @bind="SelectedAccountKey">
+                @foreach (var account in Session.Accounts)
+                {
+                    <option value="@account.Key">@account.Name — @(account.IsAdministrator ? "Панель администратора" : account.Email)</option>
+                }
+            </select>
+
+            @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+            {
+                <p class="login-error" role="alert">@ErrorMessage</p>
+            }
+
+            <button type="submit" class="login-submit">Продолжить</button>
+        </form>
+
+        <div class="login-disclaimer">
+            <strong>Важно</strong>
+            <span>Это демонстрационный выбор пользователя, а не настоящая аутентификация. Доступ и данные в production должны проверяться сервером/API.</span>
+        </div>
+    </section>
+</div>
+
+@code {
+    private string SelectedAccountKey { get; set; } = string.Empty;
+    private string ErrorMessage { get; set; } = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        SelectedAccountKey = Session.IsAdministrator
+            ? "admin"
+            : $"user-{Session.CurrentUserId}";
+    }
+
+    private void SignIn()
+    {
+        if (!Session.TrySignIn(SelectedAccountKey))
+        {
+            ErrorMessage = "Выбранная тестовая учётная запись больше недоступна.";
+            return;
+        }
+
+        Navigation.NavigateTo(Session.IsAdministrator ? "/admin" : "/");
+    }
+}

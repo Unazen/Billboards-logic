@@ -22,3 +22,352 @@ textarea {
 a {
     color: inherit;
 }
+
+.client-page {
+    display: flex;
+    max-width: 1500px;
+    flex-direction: column;
+    gap: 20px;
+    margin: 0 auto;
+}
+
+.client-page-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.client-page-heading h1 {
+    margin: 0 0 7px;
+    color: #172033;
+    font-size: 25px;
+    font-weight: 700;
+}
+
+.client-page-heading p {
+    margin: 0;
+    color: #8490a3;
+    font-size: 13px;
+}
+
+.client-count {
+    flex: 0 0 auto;
+    padding: 9px 12px;
+    border: 1px solid #e8ebf0;
+    border-radius: 8px;
+    background: #fff;
+    color: #536174;
+    font-size: 11px;
+}
+
+.client-empty-state {
+    padding: 44px 24px;
+    text-align: center;
+}
+
+.client-empty-state h2 {
+    margin: 0 0 8px;
+    color: #38455a;
+    font-size: 17px;
+}
+
+.client-empty-state p {
+    margin: 0;
+    color: #98a1b0;
+    font-size: 12px;
+}
+
+.client-responsive-table {
+    overflow-x: auto;
+}
+
+.client-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.client-table th {
+    padding: 12px;
+    border-bottom: 1px solid #edf0f5;
+    color: #8b95a5;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.client-table td {
+    padding: 14px 12px;
+    border-bottom: 1px solid #f0f2f6;
+    color: #536174;
+    font-size: 12px;
+}
+
+.client-table td strong,
+.client-table td small {
+    display: block;
+}
+
+.client-table td strong {
+    color: #38455a;
+    font-size: 12px;
+}
+
+.client-table td small {
+    margin-top: 4px;
+    color: #98a1b0;
+    font-size: 10px;
+}
+
+.client-table-link {
+    color: #3978ed;
+    font-size: 11px;
+    text-decoration: none;
+}
+
+.client-table-link:hover {
+    text-decoration: underline;
+}
+
+.client-group-grid,
+.client-stream-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.client-group-card {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.client-group-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.client-group-title h2 {
+    margin: 0 0 4px;
+    color: #172033;
+    font-size: 15px;
+}
+
+.client-group-title > div > span,
+.client-group-description {
+    color: #98a1b0;
+    font-size: 11px;
+}
+
+.client-group-description {
+    margin: 0;
+}
+
+.client-group-devices {
+    border-top: 1px solid #f0f2f6;
+}
+
+.client-group-device {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-height: 48px;
+    border-bottom: 1px solid #f0f2f6;
+}
+
+.client-group-device > span:first-child {
+    color: #3978ed;
+}
+
+.client-group-device strong {
+    flex: 1;
+    color: #536174;
+    font-size: 11px;
+}
+
+.client-stat-grid-three {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.client-progress-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.client-progress {
+    width: 100px;
+    height: 7px;
+    overflow: hidden;
+    border-radius: 8px;
+    background: #edf0f5;
+}
+
+.client-progress span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: #20b879;
+}
+
+.client-progress-cell small {
+    color: #778194;
+    font-size: 10px;
+}
+
+.client-stream-card {
+    overflow: hidden;
+    padding: 12px;
+}
+
+.client-stream-preview {
+    position: relative;
+    display: flex;
+    min-height: 210px;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #263b5b, #121b2c);
+    color: #fff;
+}
+
+.client-stream-preview.playing::before,
+.client-stream-preview.playing::after {
+    position: absolute;
+    width: 240px;
+    height: 240px;
+    border: 1px solid rgb(255 255 255 / 9%);
+    border-radius: 50%;
+    content: "";
+}
+
+.client-stream-preview.playing::after {
+    width: 340px;
+    height: 340px;
+}
+
+.client-live-tag {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    border-radius: 4px;
+    background: rgb(0 0 0 / 28%);
+    font-size: 9px;
+    letter-spacing: .5px;
+}
+
+.client-live-tag i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #27d58a;
+}
+
+.client-preview-content,
+.client-no-signal-content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
+}
+
+.client-preview-mark {
+    display: flex;
+    width: 38px;
+    height: 38px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 11px;
+    background: #3978ed;
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.client-preview-content strong,
+.client-no-signal-content strong {
+    font-size: 13px;
+}
+
+.client-preview-content small {
+    color: #b6c3d6;
+    font-size: 10px;
+}
+
+.client-preview-controls {
+    position: absolute;
+    right: 12px;
+    bottom: 10px;
+    left: 12px;
+    color: #d7dfeb;
+    font-size: 10px;
+}
+
+.client-stream-preview.no-signal {
+    background: #202a3a;
+}
+
+.client-no-signal-content {
+    color: #c1c9d4;
+}
+
+.client-no-signal-content > span {
+    font-size: 27px;
+}
+
+.client-stream-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 13px 2px 6px;
+}
+
+.client-stream-meta > div {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.client-stream-meta strong {
+    color: #38455a;
+    font-size: 12px;
+}
+
+.client-stream-meta small,
+.client-stream-updated {
+    color: #98a1b0;
+    font-size: 10px;
+}
+
+.client-stream-updated {
+    padding: 0 2px 2px;
+}
+
+@media (max-width: 900px) {
+    .client-group-grid,
+    .client-stream-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .client-page-heading {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .client-stat-grid-three {
+        grid-template-columns: 1fr;
+    }
+}

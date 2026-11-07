@@ -10,6 +10,8 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddSingleton<ScheduleDemoStore>();
 builder.Services.AddSingleton<AdminDemoStore>();
+builder.Services.AddScoped<DemoUserSession>();
+builder.Services.AddScoped<IClientPanelService, ClientPanelDemoService>();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

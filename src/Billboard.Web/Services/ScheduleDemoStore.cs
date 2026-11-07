@@ -9,7 +9,8 @@ public enum ScheduleTargetType
 public record AdVideo(
     int Id,
     string Title,
-    TimeSpan Duration
+    TimeSpan Duration,
+    int OwnerId = 1
 );
 
 public record ScheduleItem(
@@ -21,7 +22,8 @@ public record ScheduleItem(
     DateTime StartAt,
     DateTime EndAt,
     int PlaysPerHour,
-    bool IsActive
+    bool IsActive,
+    int OwnerId = 1
 );
 
 public class ScheduleDemoStore
@@ -29,9 +31,12 @@ public class ScheduleDemoStore
     private readonly List<AdVideo> _videos =
     [
         new(1, "Реклама автомобиля", TimeSpan.FromSeconds(30)),
-        new(2, "Реклама магазина", TimeSpan.FromSeconds(15)),
+        new(2, "Реклама магазина", TimeSpan.FromSeconds(15), 2),
         new(3, "Реклама смартфона", TimeSpan.FromSeconds(20)),
-        new(4, "Реклама ресторана", TimeSpan.FromSeconds(25))
+        new(4, "Реклама ресторана", TimeSpan.FromSeconds(25)),
+        new(5, "Осенняя коллекция", TimeSpan.FromSeconds(20), 2),
+        new(6, "Скидки недели", TimeSpan.FromSeconds(15), 2),
+        new(7, "Городской фестиваль", TimeSpan.FromSeconds(30), 3)
     ];
 
     private readonly List<ScheduleItem> _schedules =
@@ -56,13 +61,14 @@ public class ScheduleDemoStore
             DateTime.Today,
             DateTime.Today.AddDays(14),
             8,
-            true
+            true,
+            2
         ),
         new(
             3,
             "Смартфон — группа №1",
             3,
-            "Центральные билборды",
+            "Центр города",
             ScheduleTargetType.Group,
             DateTime.Today.AddDays(-5),
             DateTime.Today.AddDays(5),
@@ -75,6 +81,9 @@ public class ScheduleDemoStore
 
     public IReadOnlyList<AdVideo> Videos => _videos;
 
+    public IReadOnlyList<AdVideo> GetVideosForOwner(int ownerId) =>
+        _videos.Where(video => video.OwnerId == ownerId).ToList();
+
     public IReadOnlyList<ScheduleItem> Schedules => _schedules;
 
     public event Action? Changed;
@@ -84,9 +93,14 @@ public class ScheduleDemoStore
         return _videos.FirstOrDefault(video => video.Id == videoId);
     }
 
-    public void ToggleActive(int id)
+    public AdVideo? GetVideo(int videoId, int ownerId) =>
+        _videos.FirstOrDefault(video =>
+            video.Id == videoId && video.OwnerId == ownerId);
+
+    public void ToggleActive(int id, int? ownerId = null)
     {
-        var index = _schedules.FindIndex(schedule => schedule.Id == id);
+        var index = _schedules.FindIndex(schedule =>
+            schedule.Id == id && (ownerId is null || schedule.OwnerId == ownerId));
 
         if (index < 0)
             return;
@@ -101,9 +115,10 @@ public class ScheduleDemoStore
         NotifyChanged();
     }
 
-    public void RemoveSchedule(int id)
+    public void RemoveSchedule(int id, int? ownerId = null)
     {
-        var schedule = _schedules.FirstOrDefault(s => s.Id == id);
+        var schedule = _schedules.FirstOrDefault(s =>
+            s.Id == id && (ownerId is null || s.OwnerId == ownerId));
 
         if (schedule is null)
             return;
@@ -120,7 +135,8 @@ public class ScheduleDemoStore
         DateTime startAt,
         DateTime endAt,
         int playsPerHour,
-        out string error)
+        out string error,
+        int ownerId = 1)
     {
         name = name?.Trim() ?? string.Empty;
         targetName = targetName?.Trim() ?? string.Empty;
@@ -137,7 +153,7 @@ public class ScheduleDemoStore
             return false;
         }
 
-        if (GetVideo(videoId) is null)
+        if (GetVideo(videoId, ownerId) is null)
         {
             error = "Выбранный видеоролик не найден.";
             return false;
@@ -182,7 +198,8 @@ public class ScheduleDemoStore
             startAt.Date,
             endAt.Date,
             playsPerHour,
-            true
+            true,
+            ownerId
         ));
 
         error = string.Empty;
@@ -201,9 +218,10 @@ public class ScheduleDemoStore
     DateTime startAt,
     DateTime endAt,
     int playsPerHour,
-    out string error)
+    out string error,
+    int ownerId = 1)
 {
-    var index = _schedules.FindIndex(s => s.Id == id);
+    var index = _schedules.FindIndex(s => s.Id == id && s.OwnerId == ownerId);
 
     if (index < 0)
     {
@@ -226,7 +244,7 @@ public class ScheduleDemoStore
         return false;
     }
 
-    if (GetVideo(videoId) is null)
+    if (GetVideo(videoId, ownerId) is null)
     {
         error = "Выбранный видеоролик не найден.";
         return false;

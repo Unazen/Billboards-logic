@@ -1,4 +1,6 @@
 ﻿@inherits LayoutComponentBase
+@inject DemoUserSession Session
+@inject NavigationManager Navigation
 
 <div class="app-layout">
     <NavMenu />
@@ -7,9 +9,25 @@
         <Header />
 
         <main class="page-content">
-            @Body
+            @if (IsAdminPath && !Session.IsAdministrator)
+            {
+                <section class="access-required">
+                    <h2>Требуется демо-вход администратора</h2>
+                    <p>Чтобы просматривать административные разделы, выберите учётную запись администратора.</p>
+                    <a href="/login" class="access-required-link">Открыть вход →</a>
+                </section>
+            }
+            else
+            {
+                @Body
+            }
         </main>
 
         <StatusBar />
     </div>
+
+    @code {
+        private bool IsAdminPath =>
+            new Uri(Navigation.Uri).AbsolutePath.StartsWith("/admin", StringComparison.OrdinalIgnoreCase);
+    }
 </div>
