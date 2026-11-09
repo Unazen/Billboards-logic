@@ -2,9 +2,15 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Billboard.Application.Contracts;
 
-/// <summary>Файл, который устройство должно скачать. Ссылка временная (presigned URL).</summary>
+/// <summary>
+/// Файл, который устройство должно скачать. Ссылка временная (presigned URL).
+/// Запись привязана к размещению: один и тот же ролик в двух размещениях даёт две записи,
+/// иначе симулятор не сможет отправить события показов и соблюсти квоту.
+/// </summary>
 public record ManifestFileDto(
     Guid VideoAssetId,
+    Guid PlacementId,
+    int MinimumPlaysPerHour,
     string FileName,
     long SizeBytes,
     decimal? DurationSeconds,

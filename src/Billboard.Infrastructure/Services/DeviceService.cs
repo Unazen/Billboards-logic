@@ -44,19 +44,28 @@ public sealed class DeviceService(AppDbContext db, IVideoService videos, IOption
             .ToList();
 
         var files = new List<ManifestFileDto>(active.Count);
-        var seen = new HashSet<Guid>();
         var expiresAt = now.AddMinutes(Math.Max(1, _media.DownloadUrlTtlMinutes));
+
+        // Ссылка на файл подписывается один раз на видео, но запись в манифесте — на каждое
+        // размещение: симулятору нужны placementId и минимальная квота показов.
+        var sources = new Dictionary<Guid, VideoSourceDto>();
 
         foreach (var placement in active)
         {
             if (placement.VideoAsset is not { Status: VideoStatus.Ready }) continue;
-            if (!seen.Add(placement.VideoAssetId)) continue;
 
             try
             {
-                var source = await videos.GetPlaybackSourceAsync(placement.VideoAssetId, ct);
+                if (!sources.TryGetValue(placement.VideoAssetId, out var source))
+                {
+                    source = await videos.GetPlaybackSourceAsync(placement.VideoAssetId, ct);
+                    sources[placement.VideoAssetId] = source;
+                }
+
                 files.Add(new ManifestFileDto(
                     placement.VideoAssetId,
+                    placement.Id,
+                    placement.MinimumPlaysPerHour,
                     placement.VideoAsset.OriginalFileName,
                     source.SizeBytes,
                     placement.VideoAsset.DurationSeconds,
