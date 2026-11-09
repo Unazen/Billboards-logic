@@ -17,7 +17,7 @@
 | Загрузка по manifest, ротация, офлайн | `Api`, `Runtime`, `Cache` | `ManifestSourcesTests`, `PlaybackRotatorTests`, `SimulatorRunnerTests` |
 | Heartbeat и события показов | `Api/SimulatorApi.cs`, `Runtime/SimulatorRunner.cs` | `SimulatorRunnerTests` |
 | Модульные тесты алгоритмов | `tests/Billboard.Scheduling.Tests` | 69 тестов |
-| Тесты симулятора | `tests/Billboard.Simulator.Tests` | 49 тестов |
+| Тесты симулятора | `tests/Billboard.Simulator.Tests` | 52 теста |
 
 Дополнительно сделаны импорт/экспорт расписания в JSON и восстановление
 неотправленных событий после перезапуска симулятора.
@@ -322,9 +322,10 @@ requiredSecondsPerHour = MinimumPlaysPerHour * VideoDurationSeconds
   событий уже реализованы — повторно писать их не нужно;
 - P3 использует собственный `CapacityScheduleValidator`; P2-библиотеку можно
   подключить позже, чтобы не держать две реализации алгоритма;
-- в manifest P3 нужно добавить `placementId` и `minimumPlaysPerHour`, иначе
-  симулятор не сможет отправлять события и соблюдать квоты;
-- API групп билбордов в P3 пока отсутствует;
+- manifest P3 уже содержит `placementId` и `minimumPlaysPerHour` и отдаёт
+  отдельную запись на каждое размещение;
+- API групп билбордов добавлен (`/api/v1/billboard-groups` и админские
+  `/api/v1/admin/billboard-groups`);
 - при отмене размещения P3 уже освобождает резерв — это его ответственность.
 
 Маппинг `Placement` на `AdPlacement` из ТЗ:
@@ -341,6 +342,18 @@ requiredSecondsPerHour = MinimumPlaysPerHour * VideoDurationSeconds
 
 `Placement.StatusBeforePause` — дополнительное поле, нужное для корректного
 возобновления. Его можно хранить в `AdPlacement` или вычислять по истории.
+
+Группы:
+
+| P2 `PlacementGroup` | P3 `BillboardGroupDto` |
+|---|---|
+| `Id` | `Id` |
+| `Name` | `Name` |
+| `BillboardIds` | `Billboards.Select(b => b.Id)` |
+
+P2-проверка группы (`ScheduleValidator.ValidateGroup`) по-прежнему работает
+локально; P3 отдаёт только CRUD групп, а доступность каждого билборда
+проверяется через `POST /placements/validate`.
 
 ## 8. Импорт и экспорт
 
@@ -374,11 +387,9 @@ requiredSecondsPerHour = MinimumPlaysPerHour * VideoDurationSeconds
   (`http://host:port`), а пути `/api/v1/...` добавляются самим клиентом.
 - Авторизация устройства — `X-Device-Token: "{billboardId:N}.{secret}"` (P3).
   Токен передаётся через `--device-token` или `BILLBOARD_DEVICE_TOKEN`.
-- Текущий manifest P3 (`files`) не содержит `placementId` и
-  `minimumPlaysPerHour`. P2 умеет читать эти поля, если P3 их добавит, но без
-  `placementId` событие показа отправить нельзя: симулятор показывает ролик и
-  пишет предупреждение, но не вызывает playback-events. Это единственный
-  оставшийся контрактный блокер на стороне P3.
+- Manifest P3 отдаёт отдельную запись на каждое размещение. P2 кэширует файл по
+  `videoAssetId` один раз, а ротацию и события ведёт по `placementId`, поэтому
+  один ролик может одновременно участвовать в нескольких размещениях.
 - Контрольные суммы в manifest опциональны; если их нет, проверяется размер.
 - Проекты P2 target `net10.0`, как и остальные проекты решения. Для сборки
   нужен .NET SDK 10.0; на машине с одним SDK 9 проект не соберётся.
@@ -391,7 +402,7 @@ dotnet test  BillboardSystem.P2.sln
 dotnet run --project src/Billboard.Simulator -- --demo
 ```
 
-Ожидается: сборка без ошибок, 118 тестов, успешное демо.
+Ожидается: сборка без ошибок, 121 тест, успешное демо.
 
 ## 11. Git
 

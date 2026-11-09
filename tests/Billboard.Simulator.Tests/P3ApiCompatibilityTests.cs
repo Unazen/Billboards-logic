@@ -91,6 +91,53 @@ public class P3ApiCompatibilityTests
     }
 
     [Fact]
+    public async Task GetManifest_KeepsPerPlacementEntriesForSameVideo()
+    {
+        var secondPlacement = Guid.NewGuid();
+        var handler = new RecordingHandler(HttpStatusCode.OK, $$"""
+            {
+              "billboardId": "{{BillboardId}}",
+              "version": 44,
+              "generatedAt": "2026-11-09T12:00:00Z",
+              "cacheLimitBytes": 34359738368,
+              "cacheUsedBytes": 0,
+              "files": [
+                {
+                  "videoAssetId": "{{VideoId}}",
+                  "placementId": "{{PlacementId}}",
+                  "minimumPlaysPerHour": 6,
+                  "fileName": "ad.mp4",
+                  "sizeBytes": 2048,
+                  "durationSeconds": 15,
+                  "checksum": null,
+                  "downloadUrl": "http://minio/ad.mp4",
+                  "urlExpiresAt": "2026-11-09T12:15:00Z"
+                },
+                {
+                  "videoAssetId": "{{VideoId}}",
+                  "placementId": "{{secondPlacement}}",
+                  "minimumPlaysPerHour": 2,
+                  "fileName": "ad.mp4",
+                  "sizeBytes": 2048,
+                  "durationSeconds": 15,
+                  "checksum": null,
+                  "downloadUrl": "http://minio/ad.mp4",
+                  "urlExpiresAt": "2026-11-09T12:15:00Z"
+                }
+              ]
+            }
+            """);
+        var api = CreateApi(handler);
+
+        var manifest = await api.GetManifestAsync(BillboardId);
+
+        Assert.NotNull(manifest);
+        Assert.Equal(2, manifest!.Items.Count);
+        Assert.Contains(manifest.Items, item => item.PlacementId == PlacementId && item.PlaysPerHour == 6);
+        Assert.Contains(manifest.Items, item => item.PlacementId == secondPlacement && item.PlaysPerHour == 2);
+    }
+
+    [Fact]
     public async Task SendPlaybackEvents_MapsP3ContractAndCounters()
     {
         var handler = new RecordingHandler(HttpStatusCode.OK, """

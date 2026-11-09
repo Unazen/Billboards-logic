@@ -34,6 +34,8 @@ X-Device-Token: d2f3f8d96a3e4e9198772b8e0a5f4321.<secret>
   "files": [
     {
       "videoAssetId": "2a8c4c12-1e44-4d3f-9d8a-7a8f58f4a122",
+      "placementId": "0f7d1c2e-1111-4a3b-9a10-aaaaaaaaaaaa",
+      "minimumPlaysPerHour": 6,
       "fileName": "promo-42.mp4",
       "sizeBytes": 104857600,
       "durationSeconds": 15,
@@ -50,8 +52,8 @@ X-Device-Token: d2f3f8d96a3e4e9198772b8e0a5f4321.<secret>
 | P3 `files[]` | P2 `ManifestItem` |
 |---|---|
 | `videoAssetId` | `VideoId` |
-| `placementId` (пока отсутствует) | `PlacementId` |
-| `minimumPlaysPerHour` (пока отсутствует) | `PlaysPerHour` |
+| `placementId` | `PlacementId` |
+| `minimumPlaysPerHour` | `PlaysPerHour` |
 | `fileName` | `FileName` |
 | `sizeBytes` | `SizeBytes` |
 | `durationSeconds` | `DurationSeconds` |
@@ -63,31 +65,15 @@ X-Device-Token: d2f3f8d96a3e4e9198772b8e0a5f4321.<secret>
 `cacheLimitBytes`/`cacheUsedBytes` P3 не переопределяют локальный лимит P2:
 симулятор использует `--cache-mb` (по умолчанию 32 ГБ).
 
-**Блокер P3.** В текущем `ManifestFileDto` нет `placementId` и
-`minimumPlaysPerHour`. P2 уже читает эти поля, если они появятся, но без
-`placementId` он не может отправить `playback-events` (P3 требует его в каждом
-событии). Пока поле не добавлено, симулятор показывает ролик, пишет
-предупреждение и не вызывает endpoint событий. Это не ошибка P2.
+P3 отдаёт **отдельную запись на каждое размещение**. Если один ролик используется
+в двух размещениях, в `files` будет две записи с одинаковым `videoAssetId`, но
+разными `placementId` и `minimumPlaysPerHour`. P2:
 
-Предлагаемое расширение P3 (одно поле в DTO и заполнение из `AdPlacement`):
+- скачивает файл один раз (кэш по `videoAssetId`);
+- создаёт отдельную позицию ротации для каждого `placementId`;
+- отправляет событие показа с правильным `placementId`.
 
-```json
-{
-  "videoAssetId": "...",
-  "placementId": "...",
-  "minimumPlaysPerHour": 6,
-  "fileName": "promo-42.mp4",
-  "sizeBytes": 104857600,
-  "durationSeconds": 15,
-  "checksum": "9f2c...",
-  "downloadUrl": "https://...",
-  "urlExpiresAt": "2026-11-09T12:15:00+00:00"
-}
-```
-
-Если один и тот же ролик используется в нескольких размещениях, manifest должен
-отдавать отдельную запись на каждое размещение (файл можно не дублировать, но
-`placementId` и квоту нужно передать для каждого).
+Это позволяет соблюдать квоты и списывать деньги по конкретному размещению.
 
 ### 1.2. Heartbeat
 
@@ -300,16 +286,16 @@ P2-коды `BILLBOARD_OFFLINE`, `QUOTA_EXCEEDS_CAPACITY`, `INVALID_*` отно�
 
 ## 3. Интеграционные требования
 
-### P3 (осталось)
+### P3 (сделано)
 
-1. Добавить `placementId` и `minimumPlaysPerHour` в `ManifestFileDto` и
-   заполнять их из `AdPlacement` (без этого P2 не отправит события и не
-   соблюдёт квоты).
-2. Если один ролик используется в нескольких размещениях, отдавать в manifest
-   отдельную запись на каждое размещение.
-3. Добавить API групп билбордов (в P3 есть сущности, но нет контроллеров).
-4. По возможности заменить `CapacityScheduleValidator` вызовом
-   `Billboard.Scheduling`, чтобы не поддерживать две реализации.
+1. `ManifestFileDto` содержит `placementId` и `minimumPlaysPerHour`;
+   `DeviceService` отдаёт отдельную запись на каждое размещение.
+2. API групп билбордов добавлен:
+   - `GET /api/v1/billboard-groups`, `GET /api/v1/billboard-groups/{id}` — клиент;
+   - `GET/POST/PATCH/DELETE /api/v1/admin/billboard-groups` — админ;
+   - `POST/DELETE /api/v1/admin/billboard-groups/{id}/billboards` — состав группы.
+3. Осталось только возможное объединение `CapacityScheduleValidator` с
+   `Billboard.Scheduling`, чтобы не поддерживать две реализации алгоритма.
 
 ### P1 (интерфейс)
 
@@ -326,9 +312,9 @@ P2-коды `BILLBOARD_OFFLINE`, `QUOTA_EXCEEDS_CAPACITY`, `INVALID_*` отно�
 - P3 manifest/heartbeat/events/cache-reports DTO;
 - API по умолчанию `http://localhost:8080`;
 - ответ событий P3 — счётчики, outbox очищается по сумме счётчиков;
-- `placementId`/`minimumPlaysPerHour` читаются из manifest, если P3 их добавит;
-- при отсутствии `placementId` показ продолжается, событие не отправляется,
-  в лог пишется предупреждение.
+- `placementId` и `minimumPlaysPerHour` читаются из manifest;
+- один ролик в нескольких размещениях: файл кэшируется один раз, ротация и
+  события ведутся отдельно по каждому `placementId`.
 
 ## 4. Примеры
 

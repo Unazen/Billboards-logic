@@ -81,8 +81,8 @@ public sealed class SimulatorRunner
                 }
                 else if (!item.IsActiveAt(_time.GetUtcNow()))
                 {
-                    Log($"[PLAY] Ролик {item.FileName} больше не активен — исключаю из ротации.");
-                    _rotator.Remove(item.VideoId);
+                    Log($"[PLAY] Ролик {item.FileName} больше не активен — исключаю размещение из ротации.");
+                    _rotator.Remove(item.VideoId, item.PlacementId);
                     await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
                 }
                 else if (_cache.TryGetEntry(item.VideoId) is null)
@@ -165,8 +165,12 @@ public sealed class SimulatorRunner
     {
         var items = manifest.Items
             .Where(item => item.VideoId != Guid.Empty)
-            .GroupBy(item => item.VideoId)
+            // P3 отдаёт запись на каждое размещение; один ролик может встречаться
+            // несколько раз с разными placementId и квотами.
+            .GroupBy(item => (item.VideoId, item.PlacementId))
             .Select(group => group.First())
+            .OrderBy(item => item.VideoId)
+            .ThenBy(item => item.PlacementId)
             .ToArray();
 
         var protectedIds = items.Select(item => item.VideoId).ToHashSet();
@@ -197,14 +201,22 @@ public sealed class SimulatorRunner
             .Where(item => _cache.TryGetEntry(item.VideoId) is not null)
             .ToArray();
 
-        var currentIds = _rotator.Items.Select(item => item.VideoId).OrderBy(id => id).ToArray();
-        var playableIds = playable.Select(item => item.VideoId).OrderBy(id => id).ToArray();
-        if (!currentIds.SequenceEqual(playableIds))
+        var currentKeys = _rotator.Items
+            .Select(item => (item.VideoId, item.PlacementId))
+            .OrderBy(key => key.VideoId)
+            .ThenBy(key => key.PlacementId)
+            .ToArray();
+        var playableKeys = playable
+            .Select(item => (item.VideoId, item.PlacementId))
+            .OrderBy(key => key.VideoId)
+            .ThenBy(key => key.PlacementId)
+            .ToArray();
+        if (!currentKeys.SequenceEqual(playableKeys))
         {
             _rotator.SetItems(playable);
         }
 
-        Log($"[CACHE] К показу готово {playable.Length} из {items.Length}.");
+        Log($"[CACHE] К показу готово {playable.Length} размещение(й) из {items.Length}.");
     }
 
     private async Task PlayAsync(ManifestItem item, CancellationToken cancellationToken)
@@ -340,17 +352,21 @@ public sealed class SimulatorRunner
         {
             BillboardId = _options.BillboardId,
             ReportedAt = _time.GetUtcNow(),
-            Items = manifest.Items.Select(item =>
-            {
-                var entry = _cache.TryGetEntry(item.VideoId);
-                return new CacheReportItem
+            Items = manifest.Items
+                .GroupBy(item => item.VideoId)
+                .Select(group =>
                 {
-                    VideoId = item.VideoId,
-                    SizeBytes = entry?.SizeBytes ?? 0,
-                    ChecksumSha256 = entry?.ChecksumSha256,
-                    State = entry is null ? CacheItemState.Missing : CacheItemState.Ready,
-                };
-            }).ToArray(),
+                    var videoId = group.Key;
+                    var entry = _cache.TryGetEntry(videoId);
+                    return new CacheReportItem
+                    {
+                        VideoId = videoId,
+                        SizeBytes = entry?.SizeBytes ?? 0,
+                        ChecksumSha256 = entry?.ChecksumSha256,
+                        State = entry is null ? CacheItemState.Missing : CacheItemState.Ready,
+                    };
+                })
+                .ToArray(),
         };
 
         try

@@ -69,13 +69,14 @@ internal static class TestItems
 {
     public static ManifestItem Create(
         Guid? videoId = null,
+        Guid? placementId = null,
         long size = 1024,
         string? checksum = null,
         string fileName = "video.mp4",
         int durationSeconds = 10,
         int playsPerHour = 1) => new()
     {
-        PlacementId = Guid.NewGuid(),
+        PlacementId = placementId ?? Guid.NewGuid(),
         VideoId = videoId ?? Guid.NewGuid(),
         FileName = fileName,
         DownloadUrl = "test://video",

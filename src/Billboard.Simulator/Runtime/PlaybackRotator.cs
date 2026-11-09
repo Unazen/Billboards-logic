@@ -41,9 +41,12 @@ public sealed class PlaybackRotator
             .Where(item => item.VideoId != Guid.Empty)
             .Where(item => item.DurationSeconds > 0)
             .Where(item => item.PlaysPerHour > 0)
-            .GroupBy(item => item.VideoId)
+            // P3 отдаёт отдельную запись на каждое размещение. Один и тот же файл
+            // может участвовать в нескольких размещениях с разными квотами.
+            .GroupBy(item => (item.VideoId, item.PlacementId))
             .Select(group => group.Last())
             .OrderBy(item => item.VideoId)
+            .ThenBy(item => item.PlacementId)
             .ToArray();
 
         lock (_gate)
@@ -71,6 +74,7 @@ public sealed class PlaybackRotator
             var state = _states
                 .OrderBy(item => item.NextAt)
                 .ThenBy(item => item.Item.VideoId)
+                .ThenBy(item => item.Item.PlacementId)
                 .First();
 
             state.NextAt += state.Step;
@@ -83,6 +87,17 @@ public sealed class PlaybackRotator
         lock (_gate)
         {
             return _states.RemoveAll(state => state.Item.VideoId == videoId) > 0;
+        }
+    }
+
+    /// <summary>Удаляет конкретное размещение, не затрагивая другие размещения того же ролика.</summary>
+    public bool Remove(Guid videoId, Guid placementId)
+    {
+        lock (_gate)
+        {
+            return _states.RemoveAll(state =>
+                state.Item.VideoId == videoId &&
+                state.Item.PlacementId == placementId) > 0;
         }
     }
 
