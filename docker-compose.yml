@@ -1,0 +1,69 @@
+# Запуск: cp .env.example .env && docker compose up --build
+# API:     http://localhost:8080   (OpenAPI — только в Development)
+# MinIO:   http://localhost:9001   (консоль)
+# Web и симуляторы добавляют участники 1 и 2 в свои ветки.
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?задайте POSTGRES_USER в .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?задайте POSTGRES_PASSWORD в .env}
+      POSTGRES_DB: ${POSTGRES_DB:-billboard}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB:-billboard}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:?задайте MINIO_ACCESS_KEY в .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?задайте MINIO_SECRET_KEY в .env}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: src/Billboard.Api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=${POSTGRES_DB:-billboard};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      Storage__Provider: Minio
+      Storage__Endpoint: minio:9000
+      Storage__AccessKey: ${MINIO_ACCESS_KEY}
+      Storage__SecretKey: ${MINIO_SECRET_KEY}
+      Storage__Bucket: billboard-videos
+      Storage__UseSsl: "false"
+      Seed__AdminEmail: ${SEED_ADMIN_EMAIL:-}
+      Seed__AdminPassword: ${SEED_ADMIN_PASSWORD:-}
+      DataProtection__KeysPath: /keys
+    ports:
+      - "8080:8080"
+    volumes:
+      - dpkeys:/keys
+
+volumes:
+  pgdata:
+  miniodata:
+  dpkeys:
