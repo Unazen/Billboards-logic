@@ -4,11 +4,14 @@
     <Project Path="src/Billboard.Application/Billboard.Application.csproj" />
     <Project Path="src/Billboard.Domain/Billboard.Domain.csproj" />
     <Project Path="src/Billboard.Infrastructure/Billboard.Infrastructure.csproj" />
+    <Project Path="src/Billboard.Scheduling/Billboard.Scheduling.csproj" />
     <Project Path="src/Billboard.Simulator/Billboard.Simulator.csproj" />
     <Project Path="src/Billboard.Web/Billboard.Web.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Billboard.IntegrationTests/Billboard.IntegrationTests.csproj" />
+    <Project Path="tests/Billboard.Scheduling.Tests/Billboard.Scheduling.Tests.csproj" />
+    <Project Path="tests/Billboard.Simulator.Tests/Billboard.Simulator.Tests.csproj" />
     <Project Path="tests/Billboard.UnitTests/Billboard.UnitTests.csproj" />
   </Folder>
 </Solution>
