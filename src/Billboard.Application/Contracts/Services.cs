@@ -124,6 +124,18 @@ public interface IBillboardService
     Task HeartbeatAsync(Guid billboardId, HeartbeatRequest request, CancellationToken ct = default);
 }
 
+/// <summary>Группы билбордов: CRUD и состав участников.</summary>
+public interface IBillboardGroupService
+{
+    Task<IReadOnlyList<BillboardGroupDto>> ListAsync(CancellationToken ct = default);
+    Task<BillboardGroupDto> GetAsync(Guid id, CancellationToken ct = default);
+    Task<BillboardGroupDto> CreateAsync(BillboardGroupUpsertRequest request, CancellationToken ct = default);
+    Task<BillboardGroupDto> RenameAsync(Guid id, BillboardGroupUpsertRequest request, CancellationToken ct = default);
+    Task DeleteAsync(Guid id, CancellationToken ct = default);
+    Task<BillboardGroupDto> AddBillboardsAsync(Guid id, BillboardGroupMembersRequest request, CancellationToken ct = default);
+    Task<BillboardGroupDto> RemoveBillboardAsync(Guid id, Guid billboardId, CancellationToken ct = default);
+}
+
 public interface IAdminService
 {
     Task<IReadOnlyList<AdminUserDto>> ListUsersAsync(int skip, int take, CancellationToken ct = default);

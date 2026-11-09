@@ -47,6 +47,23 @@
 | POST | `/api/v1/admin/billboards/{id}/disable` | Отключить (Admin) |
 | POST | `/api/v1/admin/billboards/{id}/rotate-device-token` | Новый токен устройства (Admin) |
 
+## Группы билбордов
+
+| Метод | Endpoint | Назначение |
+|---|---|---|
+| GET | `/api/v1/billboard-groups` | Список групп с составом (любой авторизованный) |
+| GET | `/api/v1/billboard-groups/{id}` | Одна группа |
+| GET | `/api/v1/admin/billboard-groups` | Список групп (Admin) |
+| POST | `/api/v1/admin/billboard-groups` | Создать группу `{ "name": "Центр" }` (Admin) |
+| PATCH | `/api/v1/admin/billboard-groups/{id}` | Переименовать (Admin) |
+| DELETE | `/api/v1/admin/billboard-groups/{id}` | Удалить группу вместе с составом (Admin) |
+| POST | `/api/v1/admin/billboard-groups/{id}/billboards` | Добавить билборды `{ "billboardIds": [...] }` (Admin) |
+| DELETE | `/api/v1/admin/billboard-groups/{id}/billboards/{billboardId}` | Убрать билборд (Admin) |
+
+Повторное добавление билборда игнорируется, неизвестный id — 400 `UNKNOWN_BILLBOARD`,
+повтор названия — 409 `GROUP_NAME_EXISTS`. Групповое назначение размещений
+с проверкой всех устройств выполняет планировщик участника 2.
+
 ## Видео
 
 | Метод | Endpoint | Назначение |
@@ -145,6 +162,8 @@
   "cacheUsedBytes": 0,
   "files": [{
     "videoAssetId": "…",
+    "placementId": "…",
+    "minimumPlaysPerHour": 6,
     "fileName": "ad.mp4",
     "sizeBytes": 2048,
     "durationSeconds": 15,
@@ -155,8 +174,15 @@
 }
 ```
 
+Каждая запись `files[]` соответствует **размещению**, а не файлу: если один ролик
+показывается по двум размещениям, в массиве будет две записи с одинаковым
+`videoAssetId`, разными `placementId` и своими квотами. `placementId` нужен
+симулятору, чтобы отправлять события показов, а `minimumPlaysPerHour` — чтобы
+соблюдать квоту.
+
 `version` меняется при любом изменении набора размещений — по нему устройство понимает,
 что манифест устарел. Ссылки живут `Media:DownloadUrlTtlMinutes` (по умолчанию 15 минут).
+Симулятор может кэшировать файл по `videoAssetId` и не скачивать его дважды.
 
 ## Администрирование
 

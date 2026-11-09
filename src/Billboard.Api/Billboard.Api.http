@@ -2,6 +2,7 @@
 @clientToken = PASTE_ACCESS_TOKEN
 @adminToken = PASTE_ADMIN_ACCESS_TOKEN
 @billboardId = PASTE_BILLBOARD_ID
+@groupId = PASTE_GROUP_ID
 @deviceToken = PASTE_DEVICE_TOKEN
 @videoId = PASTE_VIDEO_ID
 @placementId = PASTE_PLACEMENT_ID
@@ -57,6 +58,28 @@ Content-Type: application/json
 
 ### Каталог билбордов
 GET {{host}}/api/v1/billboards
+Authorization: Bearer {{clientToken}}
+
+### Создать группу билбордов (Admin)
+POST {{host}}/api/v1/admin/billboard-groups
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Центр"
+}
+
+### Добавить билборды в группу (Admin)
+POST {{host}}/api/v1/admin/billboard-groups/{{groupId}}/billboards
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "billboardIds": ["{{billboardId}}"]
+}
+
+### Группы билбордов (любой авторизованный)
+GET {{host}}/api/v1/billboard-groups
 Authorization: Bearer {{clientToken}}
 
 ### Шаг 1: создать загрузку видео

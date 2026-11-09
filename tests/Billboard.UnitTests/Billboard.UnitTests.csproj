@@ -20,6 +20,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="xunit.runner.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Billboard.Domain\Billboard.Domain.csproj" />
     <ProjectReference Include="..\..\src\Billboard.Application\Billboard.Application.csproj" />
     <ProjectReference Include="..\..\src\Billboard.Infrastructure\Billboard.Infrastructure.csproj" />
