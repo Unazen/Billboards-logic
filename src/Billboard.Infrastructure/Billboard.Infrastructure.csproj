@@ -1,8 +1,20 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\Billboard.Domain\Billboard.Domain.csproj" />
     <ProjectReference Include="..\Billboard.Application\Billboard.Application.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Identity, Options, Configuration, Logging, HttpClient: общий фреймворк ASP.NET Core. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.0" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
+    <PackageReference Include="Minio" Version="6.0.5" />
   </ItemGroup>
 
   <PropertyGroup>
