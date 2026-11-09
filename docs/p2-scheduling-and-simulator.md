@@ -17,7 +17,7 @@
 | Загрузка по manifest, ротация, офлайн | `Api`, `Runtime`, `Cache` | `ManifestSourcesTests`, `PlaybackRotatorTests`, `SimulatorRunnerTests` |
 | Heartbeat и события показов | `Api/SimulatorApi.cs`, `Runtime/SimulatorRunner.cs` | `SimulatorRunnerTests` |
 | Модульные тесты алгоритмов | `tests/Billboard.Scheduling.Tests` | 69 тестов |
-| Тесты симулятора | `tests/Billboard.Simulator.Tests` | 39 тестов |
+| Тесты симулятора | `tests/Billboard.Simulator.Tests` | 49 тестов |
 
 Дополнительно сделаны импорт/экспорт расписания в JSON и восстановление
 неотправленных событий после перезапуска симулятора.
@@ -76,7 +76,8 @@ dotnet run --project src/Billboard.Simulator -- --demo
 ```powershell
 dotnet run --project src/Billboard.Simulator -- `
   --billboard-id d2f3f8d9-6a3e-4e91-9877-2b8e0a5f4321 `
-  --api http://localhost:5000 `
+  --device-token "d2f3f8d96a3e4e9198772b8e0a5f4321.<secret>" `
+  --api http://localhost:8080 `
   --cache simulator-cache
 ```
 
@@ -85,7 +86,8 @@ dotnet run --project src/Billboard.Simulator -- `
 | Параметр | Переменная | По умолчанию |
 |---|---|---|
 | `--billboard-id` | `BILLBOARD_ID` | обязателен (кроме `--demo`) |
-| `--api` | `BILLBOARD_API_URL` | `http://localhost:5000` |
+| `--device-token` | `BILLBOARD_DEVICE_TOKEN` | обязателен для API (кроме `--manifest`) |
+| `--api` | `BILLBOARD_API_URL` | `http://localhost:8080` |
 | `--cache` | `BILLBOARD_CACHE_DIR` | `simulator-cache` |
 | `--cache-mb` | `BILLBOARD_CACHE_MB` | 32768 (32 ГБ) |
 | `--heartbeat` | — | 30 секунд |
@@ -302,21 +304,28 @@ requiredSecondsPerHour = MinimumPlaysPerHour * VideoDurationSeconds
 | `POST` | `/api/v1/devices/{billboardId}/playback-events` | пакет показов |
 | `POST` | `/api/v1/devices/{billboardId}/cache-reports` | отчёт о кэше |
 
-Для интерфейса участнику 1 нужны:
+Для интерфейса участнику 1 нужны endpoints P3:
 
-- `POST /api/v1/placements/validate` → `ScheduleValidationResult`
-  (конфликты, альтернативы, сводка ёмкости);
-- `POST /api/v1/placements/{id}/publish` → та же проверка + сохранение;
-- `GET /api/v1/placements/{id}/alternatives` → список альтернатив.
+- `POST /api/v1/placements/validate` → `PlacementValidationResultDto`
+  (`available`, `quote`, `conflicts`, `alternatives`);
+- `POST /api/v1/placements/{id}/publish` → `PublishPlacementResultDto`;
+- `GET /api/v1/placements/{id}/alternatives` → список `AlternativeWindowDto`
+  (`startAt`, `endAt`).
 
-Для участника 3:
+Внутренний `ScheduleValidationResult` P2 использует другие имена
+(`isAvailable`, `conflicts[].code`, `alternatives[].startDate/startTime`).
+Таблица соответствия — в [p2-api-contract.md](p2-api-contract.md).
 
-- реализовать `IPlacementRepository` и `IBillboardCatalog` на EF Core;
-- вызывать `ScheduleValidator`/`PlacementService` внутри API, а не дублировать
-  алгоритм;
-- передавать `availableBudget` из кошелька в `PublishAsync`/`ResumeAsync`;
-- сохранять `PlaybackEvent.IdempotencyKey` с уникальным индексом;
-- при отмене размещения освобождать резерв (это финансовая часть, не P2).
+Что уже есть в P3 и что осталось:
+
+- EF Core, PostgreSQL, Identity, MinIO, видео, размещения, кошелёк и приём
+  событий уже реализованы — повторно писать их не нужно;
+- P3 использует собственный `CapacityScheduleValidator`; P2-библиотеку можно
+  подключить позже, чтобы не держать две реализации алгоритма;
+- в manifest P3 нужно добавить `placementId` и `minimumPlaysPerHour`, иначе
+  симулятор не сможет отправлять события и соблюдать квоты;
+- API групп билбордов в P3 пока отсутствует;
+- при отмене размещения P3 уже освобождает резерв — это его ответственность.
 
 Маппинг `Placement` на `AdPlacement` из ТЗ:
 
@@ -363,9 +372,13 @@ requiredSecondsPerHour = MinimumPlaysPerHour * VideoDurationSeconds
   денег — P3.
 - HTTP-клиент симулятора ожидает, что `--api` указывает на корень хоста
   (`http://host:port`), а пути `/api/v1/...` добавляются самим клиентом.
-- Авторизация устройства (`Authorization: Device <token>`) в клиенте пока не
-  настроена: для локальной разработки API может быть анонимным, при включении
-  auth нужно добавить заголовок в `HttpSimulatorApi`.
+- Авторизация устройства — `X-Device-Token: "{billboardId:N}.{secret}"` (P3).
+  Токен передаётся через `--device-token` или `BILLBOARD_DEVICE_TOKEN`.
+- Текущий manifest P3 (`files`) не содержит `placementId` и
+  `minimumPlaysPerHour`. P2 умеет читать эти поля, если P3 их добавит, но без
+  `placementId` событие показа отправить нельзя: симулятор показывает ролик и
+  пишет предупреждение, но не вызывает playback-events. Это единственный
+  оставшийся контрактный блокер на стороне P3.
 - Контрольные суммы в manifest опциональны; если их нет, проверяется размер.
 - Проекты P2 target `net10.0`, как и остальные проекты решения. Для сборки
   нужен .NET SDK 10.0; на машине с одним SDK 9 проект не соберётся.
@@ -378,7 +391,7 @@ dotnet test  BillboardSystem.P2.sln
 dotnet run --project src/Billboard.Simulator -- --demo
 ```
 
-Ожидается: сборка без ошибок, 108 тестов, успешное демо.
+Ожидается: сборка без ошибок, 118 тестов, успешное демо.
 
 ## 11. Git
 

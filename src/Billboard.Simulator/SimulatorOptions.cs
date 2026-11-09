@@ -9,7 +9,10 @@ public sealed class SimulatorOptions
 
     public Guid BillboardId { get; set; } = Guid.Empty;
 
-    public string ApiBaseUrl { get; set; } = "http://localhost:5000";
+    public string ApiBaseUrl { get; set; } = "http://localhost:8080";
+
+    /// <summary>Токен устройства P3: "{billboardId:N}.{secret}" из ответа администратора.</summary>
+    public string? DeviceToken { get; set; }
 
     public string CacheDirectory { get; set; } = "simulator-cache";
 
@@ -71,6 +74,11 @@ public sealed class SimulatorOptions
 
                 case "--api":
                     options.ApiBaseUrl = Next().TrimEnd('/');
+                    break;
+
+                case "--device-token":
+                case "--token":
+                    options.DeviceToken = Next();
                     break;
 
                 case "--cache":
@@ -138,7 +146,8 @@ public sealed class SimulatorOptions
         writer.WriteLine();
         writer.WriteLine("Параметры:");
         writer.WriteLine("  --billboard-id <guid>  идентификатор билборда (или BILLBOARD_ID)");
-        writer.WriteLine("  --api <url>            адрес API (по умолчанию http://localhost:5000)");
+        writer.WriteLine("  --api <url>            адрес API (по умолчанию http://localhost:8080)");
+        writer.WriteLine("  --device-token <t>     X-Device-Token из P3 (или BILLBOARD_DEVICE_TOKEN)");
         writer.WriteLine("  --cache <dir>          каталог локального кэша (по умолчанию simulator-cache)");
         writer.WriteLine("  --cache-mb <mb>        лимит кэша в мегабайтах (по умолчанию 32768 = 32 ГБ)");
         writer.WriteLine("  --heartbeat <sec>      период heartbeat (по умолчанию 30)");
@@ -162,6 +171,12 @@ public sealed class SimulatorOptions
         if (env.TryGetValue("BILLBOARD_API_URL", out var api) && !string.IsNullOrWhiteSpace(api))
         {
             options.ApiBaseUrl = api.TrimEnd('/');
+        }
+
+        if (env.TryGetValue("BILLBOARD_DEVICE_TOKEN", out var deviceToken) &&
+            !string.IsNullOrWhiteSpace(deviceToken))
+        {
+            options.DeviceToken = deviceToken.Trim();
         }
 
         if (env.TryGetValue("BILLBOARD_CACHE_DIR", out var cache) && !string.IsNullOrWhiteSpace(cache))
@@ -247,6 +262,15 @@ public sealed class SimulatorOptions
         {
             throw new ArgumentException(
                 "Не указан --billboard-id. Для автономной проверки используйте --demo.");
+        }
+
+        if (!options.DemoMode &&
+            options.ManifestFile is null &&
+            string.IsNullOrWhiteSpace(options.DeviceToken))
+        {
+            throw new ArgumentException(
+                "Не указан --device-token (X-Device-Token из P3). " +
+                "Для локального manifest используйте --manifest, для демо — --demo.");
         }
     }
 }

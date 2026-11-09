@@ -54,7 +54,7 @@ catch (Exception exception) when (exception is IOException or UnauthorizedAccess
 
 using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
 using var mediaHttpClient = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
-var api = new HttpSimulatorApi(httpClient, options.ApiBaseUrl, Console.Out);
+var api = new HttpSimulatorApi(httpClient, options.ApiBaseUrl, options.DeviceToken, Console.Out);
 
 IManifestSource manifestSource = options.ManifestFile is not null
     ? new FileManifestSource(options.ManifestFile)

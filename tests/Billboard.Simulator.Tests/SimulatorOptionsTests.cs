@@ -12,6 +12,8 @@ public class SimulatorOptionsTests
         Assert.True(options.DemoMode);
         Assert.NotEqual(Guid.Empty, options.BillboardId);
         Assert.Equal(32L * 1024 * 1024 * 1024, options.CacheCapacityBytes);
+        Assert.Equal("http://localhost:8080", options.ApiBaseUrl);
+        Assert.Null(options.DeviceToken);
     }
 
     [Fact]
@@ -31,10 +33,12 @@ public class SimulatorOptionsTests
             "--speed", "50",
             "--max-plays", "10",
             "--manifest", "manifest.json",
+            "--device-token", "billboard.secret",
         });
 
         Assert.Equal(billboardId, options.BillboardId);
         Assert.Equal("http://localhost:8080", options.ApiBaseUrl);
+        Assert.Equal("billboard.secret", options.DeviceToken);
         Assert.Equal("cache-dir", options.CacheDirectory);
         Assert.Equal(100L * 1024 * 1024, options.CacheCapacityBytes);
         Assert.Equal(15, options.HeartbeatIntervalSeconds);
@@ -75,14 +79,39 @@ public class SimulatorOptionsTests
             ["BILLBOARD_API_URL"] = "http://example.test",
             ["BILLBOARD_CACHE_MB"] = "64",
             ["BILLBOARD_SPEED"] = "25",
+            ["BILLBOARD_DEVICE_TOKEN"] = "env.secret",
         };
 
         var options = SimulatorOptions.Parse(Array.Empty<string>(), env);
 
         Assert.Equal(billboardId, options.BillboardId);
         Assert.Equal("http://example.test", options.ApiBaseUrl);
+        Assert.Equal("env.secret", options.DeviceToken);
         Assert.Equal(64L * 1024 * 1024, options.CacheCapacityBytes);
         Assert.Equal(25, options.PlaybackSpeed);
+    }
+
+    [Fact]
+    public void Parse_WithoutDeviceToken_Throws()
+    {
+        var request = new[] { "--billboard-id", Guid.NewGuid().ToString() };
+
+        Assert.Throws<ArgumentException>(() => SimulatorOptions.Parse(request));
+    }
+
+    [Fact]
+    public void Parse_ManifestWithoutDeviceToken_IsAllowed()
+    {
+        var request = new[]
+        {
+            "--billboard-id", Guid.NewGuid().ToString(),
+            "--manifest", "manifest.json",
+        };
+
+        var options = SimulatorOptions.Parse(request);
+
+        Assert.Equal("manifest.json", options.ManifestFile);
+        Assert.Null(options.DeviceToken);
     }
 
     [Fact]
@@ -92,8 +121,11 @@ public class SimulatorOptionsTests
         var cliId = Guid.NewGuid();
         var env = new Dictionary<string, string?> { ["BILLBOARD_ID"] = envId.ToString() };
 
-        var options = SimulatorOptions.Parse(new[] { "--billboard-id", cliId.ToString() }, env);
+        var options = SimulatorOptions.Parse(
+            new[] { "--billboard-id", cliId.ToString(), "--device-token", "cli.secret" },
+            env);
 
         Assert.Equal(cliId, options.BillboardId);
+        Assert.Equal("cli.secret", options.DeviceToken);
     }
 }

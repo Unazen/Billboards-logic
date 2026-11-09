@@ -61,6 +61,39 @@ public class ManifestSourcesTests
     }
 
     [Fact]
+    public async Task FileManifestSource_ReadsP3Manifest()
+    {
+        using var directory = new TempDirectory();
+        var path = Path.Combine(directory.Path, "p3-manifest.json");
+        await File.WriteAllTextAsync(path, """
+            {
+              "billboardId": "d2f3f8d9-6a3e-4e91-9877-2b8e0a5f4321",
+              "version": 7,
+              "generatedAt": "2026-11-09T12:00:00Z",
+              "cacheLimitBytes": 34359738368,
+              "cacheUsedBytes": 0,
+              "files": [{
+                "videoAssetId": "2a8c4c12-1e44-4d3f-9d8a-7a8f58f4a122",
+                "fileName": "ad.mp4",
+                "sizeBytes": 2048,
+                "durationSeconds": 15,
+                "checksum": null,
+                "downloadUrl": "http://minio/ad.mp4",
+                "urlExpiresAt": "2026-11-09T12:15:00Z"
+              }]
+            }
+            """);
+
+        var result = await new FileManifestSource(path).GetAsync();
+
+        Assert.True(result.Success);
+        Assert.Equal("7", result.Manifest!.Version);
+        var item = Assert.Single(result.Manifest.Items);
+        Assert.Equal(Guid.Parse("2a8c4c12-1e44-4d3f-9d8a-7a8f58f4a122"), item.VideoId);
+        Assert.False(item.HasPlacement);
+    }
+
+    [Fact]
     public async Task FileManifestSource_WhenMissing_ReturnsError()
     {
         using var directory = new TempDirectory();

@@ -57,7 +57,11 @@ public static class DemoScenario
             var playbackEvent = PlaybackEvent.Create(options.BillboardId, item, DateTimeOffset.UtcNow);
             outbox.Enqueue(playbackEvent);
             var response = await api.SendPlaybackEventsAsync(options.BillboardId, new[] { playbackEvent });
-            outbox.Acknowledge(response?.AcceptedEventIds ?? Array.Empty<Guid>());
+            if (response is { Success: true })
+            {
+                outbox.Acknowledge(new[] { playbackEvent.EventId });
+            }
+
             log.WriteLine($"  PLAY {item.FileName} ({item.DurationSeconds} с) → событие отправлено");
         }
 
@@ -83,9 +87,9 @@ public static class DemoScenario
         api.Online = true;
         var pending = outbox.Take(options.EventBatchSize);
         var syncResponse = await api.SendPlaybackEventsAsync(options.BillboardId, pending);
-        if (syncResponse is not null)
+        if (syncResponse is { Success: true })
         {
-            outbox.Acknowledge(syncResponse.AcceptedEventIds);
+            outbox.Acknowledge(pending.Select(item => item.EventId));
         }
 
         log.WriteLine($"  Отправлено {pending.Count} событие(й), в outbox осталось {outbox.Count}");

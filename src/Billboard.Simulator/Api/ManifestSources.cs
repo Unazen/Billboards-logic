@@ -107,12 +107,15 @@ public sealed class FileManifestSource : IManifestSource
         try
         {
             var json = File.ReadAllText(_path);
-            var manifest = JsonSerializer.Deserialize<PlaybackManifest>(json, SimulatorJson.Options);
-            return Task.FromResult(new ManifestFetchResult
+            if (!P3Mapper.TryParseManifest(json, out var manifest) || manifest is null)
             {
-                Manifest = manifest,
-                Error = manifest is null ? "Manifest пуст." : null,
-            });
+                return Task.FromResult(new ManifestFetchResult
+                {
+                    Error = "Manifest пуст или имеет неизвестный формат.",
+                });
+            }
+
+            return Task.FromResult(new ManifestFetchResult { Manifest = manifest });
         }
         catch (Exception exception) when (exception is IOException or JsonException or UnauthorizedAccessException)
         {

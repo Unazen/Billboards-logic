@@ -50,6 +50,12 @@ public sealed record ManifestItem
 
     public DateTimeOffset? ActiveUntil { get; init; }
 
+    /// <summary>Срок жизни временной ссылки P3; после него нужен новый manifest.</summary>
+    public DateTimeOffset? DownloadUrlExpiresAt { get; init; }
+
+    /// <summary>P3 отдаёт placementId только в расширенном manifest; без него событие не отправить.</summary>
+    public bool HasPlacement => PlacementId != Guid.Empty;
+
     public bool IsActiveAt(DateTimeOffset now) =>
         (!ActiveFrom.HasValue || now >= ActiveFrom.Value) &&
         (!ActiveUntil.HasValue || now < ActiveUntil.Value);

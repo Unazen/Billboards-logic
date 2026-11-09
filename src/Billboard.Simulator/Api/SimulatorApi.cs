@@ -14,6 +14,22 @@ public sealed record ManifestFetchResult
     public bool Success => Manifest is not null;
 }
 
+/// <summary>Результат отправки пакета показов в P3 (счётчики, без списка ID).</summary>
+public sealed record PlaybackSendResult
+{
+    public bool Success { get; init; }
+
+    public int Accepted { get; init; }
+
+    public int Duplicates { get; init; }
+
+    public int Rejected { get; init; }
+
+    public IReadOnlyList<string> Errors { get; init; } = Array.Empty<string>();
+
+    public int TotalHandled => Accepted + Duplicates + Rejected;
+}
+
 public interface IManifestSource
 {
     Task<ManifestFetchResult> GetAsync(CancellationToken cancellationToken = default);
@@ -29,7 +45,7 @@ public interface ISimulatorApi
         HeartbeatRequest heartbeat,
         CancellationToken cancellationToken = default);
 
-    Task<PlaybackEventBatchResponse?> SendPlaybackEventsAsync(
+    Task<PlaybackSendResult?> SendPlaybackEventsAsync(
         Guid billboardId,
         IReadOnlyList<PlaybackEvent> events,
         CancellationToken cancellationToken = default);
@@ -39,19 +55,28 @@ public interface ISimulatorApi
         CancellationToken cancellationToken = default);
 }
 
-/// <summary>HTTP-клиент API устройств. При сетевой ошибке возвращает null/false, не роняя симулятор.</summary>
+/// <summary>
+/// HTTP-клиент API устройств P3. Авторизация — X-Device-Token: "{billboardId}.{secret}".
+/// При сетевой ошибке возвращает null/false, не роняя симулятор.
+/// </summary>
 public sealed class HttpSimulatorApi : ISimulatorApi
 {
     private readonly HttpClient _httpClient;
     private readonly Uri _baseUri;
+    private readonly string? _deviceToken;
     private readonly TextWriter? _log;
 
-    public HttpSimulatorApi(HttpClient httpClient, string baseUrl, TextWriter? log = null)
+    public HttpSimulatorApi(
+        HttpClient httpClient,
+        string baseUrl,
+        string? deviceToken = null,
+        TextWriter? log = null)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         ArgumentException.ThrowIfNullOrWhiteSpace(baseUrl);
 
         _baseUri = new Uri(baseUrl.TrimEnd('/') + "/", UriKind.Absolute);
+        _deviceToken = string.IsNullOrWhiteSpace(deviceToken) ? null : deviceToken.Trim();
         _log = log;
     }
 
@@ -61,19 +86,31 @@ public sealed class HttpSimulatorApi : ISimulatorApi
     {
         try
         {
-            using var response = await _httpClient.GetAsync(
-                Url($"api/v1/devices/{billboardId}/manifest"),
-                cancellationToken);
+            using var request = CreateRequest(
+                HttpMethod.Get,
+                $"api/v1/devices/{billboardId}/manifest");
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
-                Log($"Manifest: HTTP {(int)response.StatusCode}.");
+                Log($"Manifest: HTTP {(int)response.StatusCode}. " +
+                    (response.StatusCode == System.Net.HttpStatusCode.Unauthorized
+                        ? "Проверьте X-Device-Token."
+                        : string.Empty));
                 return null;
             }
 
-            return await response.Content.ReadFromJsonAsync<PlaybackManifest>(
+            var manifest = await response.Content.ReadFromJsonAsync<P3Manifest>(
                 SimulatorJson.Options,
                 cancellationToken);
+
+            if (manifest is null)
+            {
+                Log("Manifest: пустой ответ.");
+                return null;
+            }
+
+            return P3Mapper.ToInternal(manifest);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -92,17 +129,18 @@ public sealed class HttpSimulatorApi : ISimulatorApi
     {
         try
         {
-            using var response = await _httpClient.PostAsJsonAsync(
-                Url($"api/v1/devices/{heartbeat.BillboardId}/heartbeat"),
-                heartbeat,
-                SimulatorJson.Options,
-                cancellationToken);
+            using var request = CreateRequest(
+                HttpMethod.Post,
+                $"api/v1/devices/{heartbeat.BillboardId}/heartbeat",
+                JsonContent.Create(P3Mapper.ToP3(heartbeat), options: SimulatorJson.Options));
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
                 Log($"Heartbeat: HTTP {(int)response.StatusCode}.");
             }
 
+            // P3 отвечает 204 No Content.
             return response.IsSuccessStatusCode;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -116,23 +154,28 @@ public sealed class HttpSimulatorApi : ISimulatorApi
         }
     }
 
-    public async Task<PlaybackEventBatchResponse?> SendPlaybackEventsAsync(
+    public async Task<PlaybackSendResult?> SendPlaybackEventsAsync(
         Guid billboardId,
         IReadOnlyList<PlaybackEvent> events,
         CancellationToken cancellationToken = default)
     {
-        if (events.Count == 0)
+        var sendable = events
+            .Where(playbackEvent => playbackEvent.PlacementId != Guid.Empty)
+            .ToArray();
+
+        if (sendable.Length == 0)
         {
-            return new PlaybackEventBatchResponse();
+            return new PlaybackSendResult { Success = true };
         }
 
         try
         {
-            using var response = await _httpClient.PostAsJsonAsync(
-                Url($"api/v1/devices/{billboardId}/playback-events"),
-                new PlaybackEventBatch { Events = events },
-                SimulatorJson.Options,
-                cancellationToken);
+            var payload = new P3PlaybackBatch(sendable.Select(P3Mapper.ToP3).ToArray());
+            using var request = CreateRequest(
+                HttpMethod.Post,
+                $"api/v1/devices/{billboardId}/playback-events",
+                JsonContent.Create(payload, options: SimulatorJson.Options));
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -143,12 +186,34 @@ public sealed class HttpSimulatorApi : ISimulatorApi
             if (response.StatusCode == System.Net.HttpStatusCode.NoContent ||
                 response.Content.Headers.ContentLength == 0)
             {
-                return new PlaybackEventBatchResponse();
+                return new PlaybackSendResult
+                {
+                    Success = true,
+                    Accepted = sendable.Length,
+                };
             }
 
-            return await response.Content.ReadFromJsonAsync<PlaybackEventBatchResponse>(
+            var result = await response.Content.ReadFromJsonAsync<P3PlaybackResult>(
                 SimulatorJson.Options,
                 cancellationToken);
+
+            if (result is null)
+            {
+                return new PlaybackSendResult
+                {
+                    Success = true,
+                    Accepted = sendable.Length,
+                };
+            }
+
+            return new PlaybackSendResult
+            {
+                Success = true,
+                Accepted = result.Accepted,
+                Duplicates = result.Duplicates,
+                Rejected = result.Rejected,
+                Errors = result.Errors ?? Array.Empty<string>(),
+            };
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -167,11 +232,11 @@ public sealed class HttpSimulatorApi : ISimulatorApi
     {
         try
         {
-            using var response = await _httpClient.PostAsJsonAsync(
-                Url($"api/v1/devices/{report.BillboardId}/cache-reports"),
-                report,
-                SimulatorJson.Options,
-                cancellationToken);
+            using var request = CreateRequest(
+                HttpMethod.Post,
+                $"api/v1/devices/{report.BillboardId}/cache-reports",
+                JsonContent.Create(P3Mapper.ToP3(report), options: SimulatorJson.Options));
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -189,6 +254,21 @@ public sealed class HttpSimulatorApi : ISimulatorApi
             Log($"Отчёт о кэше не отправлен: {exception.Message}");
             return false;
         }
+    }
+
+    private HttpRequestMessage CreateRequest(HttpMethod method, string relative, HttpContent? content = null)
+    {
+        var request = new HttpRequestMessage(method, Url(relative))
+        {
+            Content = content,
+        };
+
+        if (_deviceToken is not null)
+        {
+            request.Headers.TryAddWithoutValidation("X-Device-Token", _deviceToken);
+        }
+
+        return request;
     }
 
     private Uri Url(string relative) => new(_baseUri, relative);
@@ -245,14 +325,14 @@ public sealed class DemoSimulatorApi : ISimulatorApi
         return Task.FromResult(true);
     }
 
-    public Task<PlaybackEventBatchResponse?> SendPlaybackEventsAsync(
+    public Task<PlaybackSendResult?> SendPlaybackEventsAsync(
         Guid billboardId,
         IReadOnlyList<PlaybackEvent> events,
         CancellationToken cancellationToken = default)
     {
         if (!Online)
         {
-            return Task.FromResult<PlaybackEventBatchResponse?>(null);
+            return Task.FromResult<PlaybackSendResult?>(null);
         }
 
         lock (_gate)
@@ -260,9 +340,10 @@ public sealed class DemoSimulatorApi : ISimulatorApi
             _events.AddRange(events);
         }
 
-        return Task.FromResult<PlaybackEventBatchResponse?>(new PlaybackEventBatchResponse
+        return Task.FromResult<PlaybackSendResult?>(new PlaybackSendResult
         {
-            AcceptedEventIds = events.Select(item => item.EventId).ToArray(),
+            Success = true,
+            Accepted = events.Count,
         });
     }
 

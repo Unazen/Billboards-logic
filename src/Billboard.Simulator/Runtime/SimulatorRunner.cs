@@ -24,6 +24,7 @@ public sealed class SimulatorRunner
     private DateTimeOffset _lastManifestAttempt = DateTimeOffset.MinValue;
     private bool _online = true;
     private int _plays;
+    private readonly HashSet<Guid> _missingPlacementWarned = new();
 
     public SimulatorRunner(
         SimulatorOptions options,
@@ -218,9 +219,22 @@ public sealed class SimulatorRunner
             await Task.Delay(delay, cancellationToken);
         }
 
+        _plays++;
+
+        if (item.PlacementId == Guid.Empty)
+        {
+            if (_missingPlacementWarned.Add(item.VideoId))
+            {
+                Log("[P3] В manifest нет placementId: ролик показывается, " +
+                    "но событие показа не отправляется. Нужно расширить ManifestFileDto в P3.");
+            }
+
+            await TryFlushAsync(cancellationToken);
+            return;
+        }
+
         var playbackEvent = PlaybackEvent.Create(_options.BillboardId, item, startedAt);
         _outbox.Enqueue(playbackEvent);
-        _plays++;
 
         Log($"[PLAY] Событие {playbackEvent.EventId:N} сохранено (outbox: {_outbox.Count}).");
         await TryFlushAsync(cancellationToken);
@@ -239,41 +253,55 @@ public sealed class SimulatorRunner
             return;
         }
 
-        var response = await _api.SendPlaybackEventsAsync(
+        var withoutPlacement = batch
+            .Where(item => item.PlacementId == Guid.Empty)
+            .Select(item => item.EventId)
+            .ToArray();
+
+        if (withoutPlacement.Length > 0)
+        {
+            _outbox.Acknowledge(withoutPlacement);
+            Log($"[SYNC] Удалено {withoutPlacement.Length} событие(й) без placementId.");
+            batch = batch.Where(item => item.PlacementId != Guid.Empty).ToArray();
+            if (batch.Count == 0)
+            {
+                return;
+            }
+        }
+
+        var result = await _api.SendPlaybackEventsAsync(
             _options.BillboardId,
             batch,
             cancellationToken);
 
-        if (response is null)
+        if (result is null)
         {
             _outbox.RecordAttempt(batch.Select(item => item.EventId));
             SetOnline(false, "события не отправлены");
             return;
         }
 
-        var acknowledged = response.AcceptedEventIds
-            .Concat(response.DuplicateEventIds)
-            .ToHashSet();
-
-        var rejected = response.Rejected
-            .Select(item => item.EventId)
-            .ToHashSet();
-
-        if (acknowledged.Count == 0 && rejected.Count == 0)
+        if (!result.Success || result.TotalHandled != batch.Count)
         {
-            // Сервер ответил 2xx без тела — считаем весь пакет принятым.
-            acknowledged = batch.Select(item => item.EventId).ToHashSet();
+            _outbox.RecordAttempt(batch.Select(item => item.EventId));
+            Log($"[SYNC] P3 подтвердил {result.TotalHandled} из {batch.Count} событие(й) — повтор пакета.");
+            SetOnline(false, "P3 не подтвердил весь пакет");
+            return;
         }
 
-        _outbox.Acknowledge(acknowledged);
-        if (rejected.Count > 0)
+        // P3 разрешает каждое событие: accepted, duplicate или rejected.
+        // Rejected — постоянная ошибка, поэтому повторять его бессмысленно.
+        _outbox.Acknowledge(batch.Select(item => item.EventId));
+
+        if (result.Rejected > 0)
         {
-            _outbox.Acknowledge(rejected);
-            Log($"[SYNC] Сервер отклонил {rejected.Count} событие(й) — они удалены из outbox.");
+            var errors = string.Join("; ", result.Errors.Take(3));
+            Log($"[SYNC] P3 отклонил {result.Rejected} событие(й): {errors}");
         }
 
         SetOnline(true, null);
-        Log($"[SYNC] Отправлено {acknowledged.Count} событие(й), в outbox осталось {_outbox.Count}.");
+        Log($"[SYNC] P3: accepted={result.Accepted}, duplicates={result.Duplicates}, " +
+            $"rejected={result.Rejected}; в outbox осталось {_outbox.Count}.");
     }
 
     private async Task HeartbeatLoopAsync(CancellationToken cancellationToken)
