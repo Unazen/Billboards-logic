@@ -286,7 +286,8 @@ public class DeviceManifestTests
         var manifest = await Service(t).GetManifestAsync(billboardId);
 
         Assert.Equal(2, manifest.Files.Count);
-        Assert.Equal(new[] { firstPlacementId, secondPlacementId },
+        Assert.Equal(
+            new[] { firstPlacementId, secondPlacementId }.OrderBy(x => x).ToArray(),
             manifest.Files.Select(f => f.PlacementId).OrderBy(x => x).ToArray());
         Assert.All(manifest.Files, f => Assert.Equal(videoId, f.VideoAssetId));
         Assert.Contains(manifest.Files, f => f.MinimumPlaysPerHour == 4);
