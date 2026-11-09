@@ -20,9 +20,11 @@ public class BillboardGroupTests
         Assert.Equal("Центр", created.Name);
         Assert.Empty(created.Billboards);
 
-        var updated = await Service(t).AddBillboardsAsync(created.Id,
-            new BillboardGroupMembersRequest(new[] { first, second }));
+        await Service(t).AddBillboardsAsync(created.Id, new BillboardGroupMembersRequest(new[] { first, second }));
 
+        // Читаем группу новым контекстом: проверяем то, что реально сохранено в БД,
+        // а не состояние change tracker.
+        var updated = await Service(t).GetAsync(created.Id);
         Assert.Equal(2, updated.Billboards.Count);
         var list = await Service(t).ListAsync();
         Assert.Single(list);
@@ -49,9 +51,9 @@ public class BillboardGroupTests
         var group = await Service(t).CreateAsync(new BillboardGroupUpsertRequest("Центр"));
 
         await Service(t).AddBillboardsAsync(group.Id, new BillboardGroupMembersRequest(new[] { billboard }));
-        var updated = await Service(t).AddBillboardsAsync(group.Id,
-            new BillboardGroupMembersRequest(new[] { billboard }));
+        await Service(t).AddBillboardsAsync(group.Id, new BillboardGroupMembersRequest(new[] { billboard }));
 
+        var updated = await Service(t).GetAsync(group.Id);
         Assert.Single(updated.Billboards);
     }
 
@@ -78,6 +80,7 @@ public class BillboardGroupTests
         var updated = await Service(t).RemoveBillboardAsync(group.Id, billboard);
 
         Assert.Empty(updated.Billboards);
+        Assert.Empty((await Service(t).GetAsync(group.Id)).Billboards);
     }
 
     [Fact]
