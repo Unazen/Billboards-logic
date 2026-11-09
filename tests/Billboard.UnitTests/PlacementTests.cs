@@ -258,19 +258,38 @@ public class DeviceManifestTests
         new(t.New(), new FakeVideoService(), Options.Create(new MediaOptions()));
 
     [Fact]
-    public async Task Manifest_contains_file_for_active_placement()
+    public async Task Manifest_contains_placement_and_quota_for_each_file()
     {
         using var t = new TestDb();
         var user = await t.AddUserAsync();
-        var (billboardId, videoId, _) = await t.AddActivePlacementAsync(user);
+        var (billboardId, videoId, placementId) = await t.AddActivePlacementAsync(user);
 
         var manifest = await Service(t).GetManifestAsync(billboardId);
 
         var file = Assert.Single(manifest.Files);
         Assert.Equal(videoId, file.VideoAssetId);
+        Assert.Equal(placementId, file.PlacementId);
+        Assert.Equal(6, file.MinimumPlaysPerHour);
         Assert.Equal(2048, file.SizeBytes);
         Assert.Equal("abc", file.Checksum);
         Assert.True(file.DownloadUrl.IsAbsoluteUri);
+    }
+
+    [Fact]
+    public async Task Same_video_in_two_placements_gives_two_manifest_entries()
+    {
+        using var t = new TestDb();
+        var user = await t.AddUserAsync();
+        var (billboardId, videoId, firstPlacementId) = await t.AddActivePlacementAsync(user);
+        var secondPlacementId = await t.AddPlacementForExistingAsync(billboardId, videoId, user);
+
+        var manifest = await Service(t).GetManifestAsync(billboardId);
+
+        Assert.Equal(2, manifest.Files.Count);
+        Assert.Equal(new[] { firstPlacementId, secondPlacementId },
+            manifest.Files.Select(f => f.PlacementId).OrderBy(x => x).ToArray());
+        Assert.All(manifest.Files, f => Assert.Equal(videoId, f.VideoAssetId));
+        Assert.Contains(manifest.Files, f => f.MinimumPlaysPerHour == 4);
     }
 
     [Fact]

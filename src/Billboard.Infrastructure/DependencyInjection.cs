@@ -44,6 +44,7 @@ public static class DependencyInjection
         services.AddScoped<IBillingService, BillingService>();
         services.AddScoped<IPlaybackService, PlaybackService>();
         services.AddScoped<IBillboardService, BillboardService>();
+        services.AddScoped<IBillboardGroupService, BillboardGroupService>();
         services.AddScoped<IAdminService, AdminService>();
 
         // Планирование: базовая проверка ёмкости; участник 2 заменяет реализацию своим планировщиком.

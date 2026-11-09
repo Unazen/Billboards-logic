@@ -101,4 +101,33 @@ public sealed class TestDb : IDisposable
     }
 
     public void Dispose() => _connection.Dispose();
+
+    /// <summary>Билборд без размещений (для тестов групп).</summary>
+    public async Task<Guid> AddBillboardAsync(string name, BillboardStatus status = BillboardStatus.Online)
+    {
+        await using var db = New();
+        var billboard = new BillboardDevice { Id = Guid.NewGuid(), Name = name, Address = "A", Status = status };
+        db.Billboards.Add(billboard);
+        await db.SaveChangesAsync();
+        return billboard.Id;
+    }
+
+    /// <summary>Второе размещение того же ролика на том же билборде (проверка манифеста).</summary>
+    public async Task<Guid> AddPlacementForExistingAsync(
+        Guid billboardId, Guid videoId, Guid ownerId, PlacementStatus status = PlacementStatus.Active,
+        int playsPerHour = 4)
+    {
+        await using var db = New();
+        var now = DateTimeOffset.UtcNow;
+        var placement = new AdPlacement
+        {
+            Id = Guid.NewGuid(), OwnerId = ownerId, VideoAssetId = videoId, BillboardId = billboardId,
+            StartAt = now.AddHours(-1), EndAt = now.AddHours(2), DaysOfWeekMask = (int)WeekDays.All,
+            StartTimeOfDay = new TimeOnly(0, 0), EndTimeOfDay = new TimeOnly(23, 59),
+            MinimumPlaysPerHour = playsPerHour, Status = status, CreatedAt = now
+        };
+        db.AdPlacements.Add(placement);
+        await db.SaveChangesAsync();
+        return placement.Id;
+    }
 }

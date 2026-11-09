@@ -49,6 +49,8 @@ public class CampaignFlowTests
         var manifest = await deviceResponse.Content.ReadFromJsonAsync<JsonElement>();
         var file = Assert.Single(manifest.GetProperty("files").EnumerateArray());
         Assert.Equal(videoId, file.GetProperty("videoAssetId").GetGuid());
+        Assert.Equal(placementId, file.GetProperty("placementId").GetGuid());
+        Assert.Equal(6, file.GetProperty("minimumPlaysPerHour").GetInt32());
         Assert.Equal(2048, file.GetProperty("sizeBytes").GetInt64());
 
         // Показ: списание ровно один раз.
@@ -156,6 +158,38 @@ public class CampaignFlowTests
 
         var placement = await GetJsonAsync(client, clientToken, $"/api/v1/placements/{placementId}");
         Assert.Equal("PendingPayment", placement.GetProperty("status").GetString());
+    }
+
+    [Fact]
+    public async Task Admin_manages_billboard_groups()
+    {
+        using var factory = new ApiFactory();
+        using var client = factory.CreateClient();
+
+        var clientToken = await RegisterAndLoginAsync(client, "groups@test.local");
+        var adminToken = await LoginAsync(client, ApiFactory.SeedAdminEmail, ApiFactory.SeedAdminPassword);
+        var (billboardId, _) = await CreateBillboardAsync(client, adminToken);
+
+        var created = await PostJsonAsync(client, adminToken, "/api/v1/admin/billboard-groups",
+            new { name = "Центр" });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var group = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var groupId = group.GetProperty("id").GetGuid();
+
+        var withMembers = await PostJsonAsync(client, adminToken,
+            $"/api/v1/admin/billboard-groups/{groupId}/billboards",
+            new { billboardIds = new[] { billboardId } });
+        Assert.Equal(HttpStatusCode.OK, withMembers.StatusCode);
+        var groupWithMembers = await withMembers.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Single(groupWithMembers.GetProperty("billboards").EnumerateArray());
+
+        // Клиент видит группы, но управлять ими не может.
+        var list = await GetJsonAsync(client, clientToken, "/api/v1/billboard-groups");
+        Assert.Single(list.EnumerateArray());
+
+        var forbidden = await PostJsonAsync(client, clientToken, "/api/v1/admin/billboard-groups",
+            new { name = "Чужая группа" });
+        Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
     }
 
     // ---------- вспомогательные ----------
