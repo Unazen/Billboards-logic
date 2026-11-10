@@ -29,6 +29,70 @@ public sealed class AdminService(AppDbContext db, UserManager<ApplicationUser> u
         return result;
     }
 
+    public async Task<AdminUserDto> CreateUserAsync(Guid actorId, CreateUserRequest request, CancellationToken ct = default)
+    {
+        var role = AllowedRoles.FirstOrDefault(r => r.Equals(request.Role?.Trim(), StringComparison.OrdinalIgnoreCase))
+                   ?? throw AppException.Validation("INVALID_ROLE", "Допустимые роли: Admin, Client.");
+
+        if (await users.FindByEmailAsync(request.Email) is not null)
+            throw AppException.Conflict("USER_EXISTS", $"Пользователь «{request.Email}» уже существует.");
+
+        var user = new ApplicationUser
+        {
+            Id = Guid.NewGuid(),
+            UserName = request.Email,
+            Email = request.Email,
+            EmailConfirmed = true,
+            DisplayName = request.DisplayName.Trim()
+        };
+
+        var created = await users.CreateAsync(user, request.Password);
+        if (!created.Succeeded)
+            throw AppException.Validation("USER_CREATE_FAILED",
+                string.Join("; ", created.Errors.Select(e => e.Description)));
+
+        await users.AddToRoleAsync(user, role);
+        db.SystemLogs.Add(new Domain.Entities.SystemLog
+        {
+            Id = Guid.NewGuid(), UserId = actorId, Action = "UserCreated", EntityType = "User",
+            EntityId = user.Id.ToString(), Result = "OK", Details = role, CreatedAt = DateTimeOffset.UtcNow
+        });
+        await db.SaveChangesAsync(ct);
+        return await MapAsync(user);
+    }
+
+    public async Task DeleteUserAsync(Guid actorId, Guid userId, CancellationToken ct = default)
+    {
+        if (actorId == userId)
+            throw AppException.Validation("CANNOT_DELETE_SELF", "Нельзя удалить собственную учётную запись.");
+
+        var user = await users.FindByIdAsync(userId.ToString()) ?? throw AppException.NotFound("Пользователь");
+
+        // История (размещения, видео, кошелёк, подписки, логи) не должна терять владельца.
+        var hasData = await db.AdPlacements.AnyAsync(p => p.OwnerId == userId, ct)
+                      || await db.VideoAssets.IgnoreQueryFilters().AnyAsync(v => v.OwnerId == userId, ct)
+                      || await db.Wallets.AnyAsync(w => w.UserId == userId, ct)
+                      || await db.Subscriptions.AnyAsync(s => s.UserId == userId, ct)
+                      || await db.Billboards.AnyAsync(b => b.OwnerId == userId, ct)
+                      || await db.BillboardGroups.AnyAsync(g => g.OwnerId == userId, ct);
+
+        if (hasData)
+            throw AppException.Conflict("USER_HAS_DATA",
+                "У пользователя есть размещения, видео или финансовые операции. Заблокируйте его вместо удаления.");
+
+        var result = await users.DeleteAsync(user);
+        if (!result.Succeeded)
+            throw AppException.Conflict("USER_DELETE_FAILED",
+                string.Join("; ", result.Errors.Select(e => e.Description)));
+
+        db.SystemLogs.Add(new Domain.Entities.SystemLog
+        {
+            Id = Guid.NewGuid(), UserId = actorId, Action = "UserDeleted", EntityType = "User",
+            EntityId = userId.ToString(), Result = "OK", CreatedAt = DateTimeOffset.UtcNow
+        });
+        await db.SaveChangesAsync(ct);
+    }
+
     public async Task<AdminUserDto> SetUserActiveAsync(Guid actorId, Guid userId, bool isActive, CancellationToken ct = default)
     {
         if (actorId == userId && !isActive)
@@ -156,4 +220,3 @@ public sealed class AdminService(AppDbContext db, UserManager<ApplicationUser> u
             : value;
     }
 }
-

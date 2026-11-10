@@ -12,8 +12,9 @@ namespace Billboard.Api.Controllers;
 public class BillboardGroupsController(IBillboardGroupService groups) : ApiControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<BillboardGroupDto>>> List(CancellationToken ct) =>
-        Ok(await groups.ListAsync(ct));
+    public async Task<ActionResult<IReadOnlyList<BillboardGroupDto>>> List(
+        [FromQuery] bool mine, CancellationToken ct) =>
+        Ok(await groups.ListAsync(mine ? UserId : null, ct));
 
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<BillboardGroupDto>> Get(Guid id, CancellationToken ct) =>
@@ -28,7 +29,7 @@ public class AdminBillboardGroupsController(IBillboardGroupService groups) : Api
 {
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<BillboardGroupDto>>> List(CancellationToken ct) =>
-        Ok(await groups.ListAsync(ct));
+        Ok(await groups.ListAsync(null, ct));
 
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<BillboardGroupDto>> Get(Guid id, CancellationToken ct) =>

@@ -7,6 +7,10 @@ namespace Billboard.Domain.Entities;
 public class BillboardDevice
 {
     public Guid Id { get; set; }
+
+    /// <summary>Владелец устройства (клиент/партнёр). null — устройство компании.</summary>
+    public Guid? OwnerId { get; set; }
+
     public string Name { get; set; } = "";
     public string Address { get; set; } = "";
     public decimal? Latitude { get; set; }
@@ -36,6 +40,10 @@ public class BillboardDevice
 public class BillboardGroup
 {
     public Guid Id { get; set; }
+
+    /// <summary>Владелец группы. null — общая группа компании.</summary>
+    public Guid? OwnerId { get; set; }
+
     public string Name { get; set; } = "";
     public List<BillboardGroupMember> Members { get; set; } = new();
 }

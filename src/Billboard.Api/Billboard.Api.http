@@ -3,6 +3,7 @@
 @adminToken = PASTE_ADMIN_ACCESS_TOKEN
 @billboardId = PASTE_BILLBOARD_ID
 @groupId = PASTE_GROUP_ID
+@userId = PASTE_USER_ID
 @deviceToken = PASTE_DEVICE_TOKEN
 @videoId = PASTE_VIDEO_ID
 @placementId = PASTE_PLACEMENT_ID
@@ -81,6 +82,68 @@ Content-Type: application/json
 ### Группы билбордов (любой авторизованный)
 GET {{host}}/api/v1/billboard-groups
 Authorization: Bearer {{clientToken}}
+
+### Мои билборды (владение или аренда)
+GET {{host}}/api/v1/billboards?mine=true
+Authorization: Bearer {{clientToken}}
+
+### Мои группы
+GET {{host}}/api/v1/billboard-groups?mine=true
+Authorization: Bearer {{clientToken}}
+
+### Групповое назначение: проверка всех устройств
+POST {{host}}/api/v1/placement-groups/validate
+Authorization: Bearer {{clientToken}}
+Content-Type: application/json
+
+{
+  "billboardIds": ["{{billboardId}}"],
+  "template": {
+    "videoAssetId": "{{videoId}}",
+    "startDate": "2026-11-10",
+    "endDate": "2026-11-14",
+    "daysOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+    "startTime": "09:00:00",
+    "endTime": "18:00:00",
+    "minimumPlaysPerHour": 6,
+    "videoDurationSeconds": 15
+  }
+}
+
+### Групповое назначение: черновики (всё или ничего)
+POST {{host}}/api/v1/placement-groups/drafts
+Authorization: Bearer {{clientToken}}
+Content-Type: application/json
+
+{
+  "billboardIds": ["{{billboardId}}"],
+  "template": {
+    "videoAssetId": "{{videoId}}",
+    "startDate": "2026-11-10",
+    "endDate": "2026-11-14",
+    "daysOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+    "startTime": "09:00:00",
+    "endTime": "18:00:00",
+    "minimumPlaysPerHour": 6,
+    "videoDurationSeconds": 15
+  }
+}
+
+### Создать пользователя (Admin)
+POST {{host}}/api/v1/admin/users
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "email": "new-client@example.com",
+  "password": "Client_123",
+  "displayName": "Новый клиент",
+  "role": "Client"
+}
+
+### Удалить пользователя (Admin)
+DELETE {{host}}/api/v1/admin/users/{{userId}}
+Authorization: Bearer {{adminToken}}
 
 ### Шаг 1: создать загрузку видео
 POST {{host}}/api/v1/videos/uploads

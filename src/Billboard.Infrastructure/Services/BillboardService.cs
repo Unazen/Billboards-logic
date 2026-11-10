@@ -11,10 +11,17 @@ namespace Billboard.Infrastructure.Services;
 
 public sealed class BillboardService(AppDbContext db) : IBillboardService
 {
-    public async Task<IReadOnlyList<BillboardDto>> ListAsync(bool includeDisabled, CancellationToken ct = default)
+    public async Task<IReadOnlyList<BillboardDto>> ListAsync(
+        bool includeDisabled, Guid? ownerUserId = null, CancellationToken ct = default)
     {
         var query = db.Billboards.AsNoTracking().AsQueryable();
         if (!includeDisabled) query = query.Where(b => b.Status != BillboardStatus.Disabled);
+
+        // «Мои» устройства: владение или действующее/прошлое размещение пользователя.
+        if (ownerUserId is { } userId)
+            query = query.Where(b => b.OwnerId == userId
+                                     || db.AdPlacements.Any(p => p.BillboardId == b.Id && p.OwnerId == userId));
+
         var items = await query.OrderBy(b => b.Name).ToListAsync(ct);
         return items.Select(Map).ToList();
     }
@@ -25,6 +32,7 @@ public sealed class BillboardService(AppDbContext db) : IBillboardService
 
     public async Task<BillboardCreatedDto> CreateAsync(BillboardUpsertRequest r, CancellationToken ct = default)
     {
+        await EnsureOwnerExistsAsync(r.OwnerId, ct);
         var billboard = new BillboardDevice { Id = Guid.NewGuid() };
         Apply(billboard, r);
 
@@ -39,6 +47,7 @@ public sealed class BillboardService(AppDbContext db) : IBillboardService
 
     public async Task<BillboardDto> UpdateAsync(Guid id, BillboardUpsertRequest r, CancellationToken ct = default)
     {
+        await EnsureOwnerExistsAsync(r.OwnerId, ct);
         var billboard = await db.Billboards.FirstOrDefaultAsync(b => b.Id == id, ct)
                         ?? throw AppException.NotFound("Билборд");
         Apply(billboard, r);
@@ -113,6 +122,7 @@ public sealed class BillboardService(AppDbContext db) : IBillboardService
 
     private static void Apply(BillboardDevice b, BillboardUpsertRequest r)
     {
+        b.OwnerId = r.OwnerId;
         b.Name = r.Name.Trim();
         b.Address = r.Address.Trim();
         b.Latitude = r.Latitude;
@@ -123,7 +133,14 @@ public sealed class BillboardService(AppDbContext db) : IBillboardService
         if (!string.IsNullOrWhiteSpace(r.TimeZoneId)) b.TimeZoneId = r.TimeZoneId.Trim();
     }
 
+    private async Task EnsureOwnerExistsAsync(Guid? ownerId, CancellationToken ct)
+    {
+        if (ownerId is { } id && !await db.Users.AnyAsync(u => u.Id == id, ct))
+            throw AppException.NotFound("Владелец билборда");
+    }
+
     public static BillboardDto Map(BillboardDevice b) => new(
         b.Id, b.Name, b.Address, b.Latitude, b.Longitude, b.CapacityBytes,
-        b.AdvertCapacitySecondsPerHour, b.Status.ToString(), b.LastSeenAt, b.PricePerPlay, b.TimeZoneId);
+        b.AdvertCapacitySecondsPerHour, b.Status.ToString(), b.LastSeenAt, b.PricePerPlay, b.TimeZoneId,
+        b.OwnerId);
 }

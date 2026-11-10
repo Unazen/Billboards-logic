@@ -112,7 +112,8 @@ public record BillboardDto(
     string Status,
     DateTimeOffset? LastSeenAt,
     decimal PricePerPlay,
-    string TimeZoneId);
+    string TimeZoneId,
+    Guid? OwnerId);
 
 public record BillboardUpsertRequest(
     [Required, StringLength(200)] string Name,
@@ -122,7 +123,8 @@ public record BillboardUpsertRequest(
     long? CapacityBytes,
     int? AdvertCapacitySecondsPerHour,
     [Range(0, 100000)] decimal PricePerPlay,
-    string? TimeZoneId);
+    string? TimeZoneId,
+    Guid? OwnerId = null);
 
 /// <summary>Токен возвращается один раз при создании или ротации.</summary>
 public record BillboardCreatedDto(BillboardDto Billboard, string DeviceToken);
@@ -166,6 +168,13 @@ public record AdminUserDto(
 public record SetUserActiveRequest(bool IsActive);
 
 public record SetUserRoleRequest([Required] string Role);
+
+/// <summary>Создание пользователя администратором.</summary>
+public record CreateUserRequest(
+    [Required, EmailAddress] string Email,
+    [Required, MinLength(6)] string Password,
+    [Required, StringLength(100)] string DisplayName,
+    [Required] string Role);
 
 public record SystemLogDto(
     Guid Id,
