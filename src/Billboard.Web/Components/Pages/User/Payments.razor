@@ -1,0 +1,108 @@
+@page "/payments"
+
+@inject BillingDemoStore Billing
+@inject DemoUserSession Session
+
+<PageTitle>Платежи | Billboard</PageTitle>
+
+<div class="client-page">
+    <div class="client-page-heading">
+        <div>
+            <h1>Платежи</h1>
+            <p>История пополнений, оплат размещений и тарифов</p>
+        </div>
+        <a class="billing-button payment-topup-link" href="/wallet">Пополнить баланс</a>
+    </div>
+
+    <div class="client-demo-note">
+        <span aria-hidden="true">ⓘ</span>
+        Демо-режим: операции тестовые, реальные платежи не проводятся.
+    </div>
+
+    <div class="client-stat-grid client-stat-grid-three">
+        <div class="client-stat-card">
+            <span class="client-stat-icon green">＋</span>
+            <span class="client-stat-label">Зачислено</span>
+            <strong>@TotalIncoming.ToString("N2", RussianCulture) ₽</strong>
+            <small>Пополнения тестового баланса</small>
+        </div>
+        <div class="client-stat-card">
+            <span class="client-stat-icon orange">−</span>
+            <span class="client-stat-label">Списано</span>
+            <strong>@TotalOutgoing.ToString("N2", RussianCulture) ₽</strong>
+            <small>Тарифы и размещения</small>
+        </div>
+        <div class="client-stat-card">
+            <span class="client-stat-icon blue">⇄</span>
+            <span class="client-stat-label">Текущий баланс</span>
+            <strong>@Billing.GetBalance(AccountKey).ToString("N2", RussianCulture) ₽</strong>
+            <small><a href="/wallet">Открыть баланс →</a></small>
+        </div>
+    </div>
+
+    <section class="client-panel payments-panel">
+        <div class="payments-toolbar">
+            <div>
+                <h2>История операций</h2>
+                <p>@FilteredPayments.Count операций</p>
+            </div>
+            <label class="payments-filter">
+                <span>Тип операции</span>
+                <select @bind="SelectedType">
+                    <option value="">Все операции</option>
+                    @foreach (var type in PaymentTypes)
+                    {
+                        <option value="@type">@type</option>
+                    }
+                </select>
+            </label>
+        </div>
+
+        @if (FilteredPayments.Count == 0)
+        {
+            <div class="client-empty-state">
+                <h2>Операций пока нет</h2>
+                <p>Пополнения и списания появятся здесь.</p>
+            </div>
+        }
+        else
+        {
+            <div class="client-responsive-table">
+                <table class="client-table">
+                    <thead>
+                        <tr><th>Дата и время</th><th>Операция</th><th>Описание</th><th>Сумма</th><th>Баланс после операции</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var payment in FilteredPayments)
+                        {
+                            <tr @key="payment.Id">
+                                <td>@payment.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                                <td><span class="payment-type">@payment.Type</span></td>
+                                <td>@payment.Description</td>
+                                <td class="@(payment.Amount >= 0 ? "amount-positive" : "amount-negative")">
+                                    @(payment.Amount > 0 ? "+" : string.Empty)@payment.Amount.ToString("N2", RussianCulture) ₽
+                                </td>
+                                <td>@payment.BalanceAfter.ToString("N2", RussianCulture) ₽</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    private static readonly System.Globalization.CultureInfo RussianCulture =
+        System.Globalization.CultureInfo.GetCultureInfo("ru-RU");
+
+    private string SelectedType { get; set; } = string.Empty;
+    private string AccountKey => Session.IsAdministrator ? "admin" : $"user-{Session.CurrentUserId}";
+    private IReadOnlyList<DemoPayment> PaymentItems => Billing.GetPayments(AccountKey);
+    private IReadOnlyList<string> PaymentTypes => PaymentItems.Select(payment => payment.Type).Distinct().Order().ToList();
+    private IReadOnlyList<DemoPayment> FilteredPayments => PaymentItems
+        .Where(payment => string.IsNullOrEmpty(SelectedType) || payment.Type == SelectedType)
+        .ToList();
+    private decimal TotalIncoming => PaymentItems.Where(payment => payment.Amount > 0).Sum(payment => payment.Amount);
+    private decimal TotalOutgoing => -PaymentItems.Where(payment => payment.Amount < 0).Sum(payment => payment.Amount);
+}
