@@ -40,29 +40,96 @@
 | Метод | Endpoint | Назначение |
 |---|---|---|
 | GET | `/api/v1/billboards` | Каталог доступных билбордов |
+| GET | `/api/v1/billboards?mine=true` | «Мои» устройства: владение или действующее/прошлое размещение |
 | GET | `/api/v1/billboards/{id}` | Детали билборда |
 | GET | `/api/v1/admin/billboards` | Все билборды, включая отключённые (Admin) |
-| POST | `/api/v1/admin/billboards` | Создать; в ответе `billboard` и `deviceToken` (Admin) |
-| PATCH | `/api/v1/admin/billboards/{id}` | Изменить параметры (Admin) |
+| POST | `/api/v1/admin/billboards` | Создать; можно указать `ownerId`; в ответе `billboard` и `deviceToken` (Admin) |
+| PATCH | `/api/v1/admin/billboards/{id}` | Изменить параметры, в том числе `ownerId` (Admin) |
 | POST | `/api/v1/admin/billboards/{id}/disable` | Отключить (Admin) |
 | POST | `/api/v1/admin/billboards/{id}/rotate-device-token` | Новый токен устройства (Admin) |
+
+`ownerId` (nullable) — владелец устройства: клиент или партнёр. `null` — устройство компании.
+`mine=true` возвращает устройства, где пользователь владелец **или** у него есть размещение
+на этом билборде (аренда по плану проекта).
 
 ## Группы билбордов
 
 | Метод | Endpoint | Назначение |
 |---|---|---|
 | GET | `/api/v1/billboard-groups` | Список групп с составом (любой авторизованный) |
+| GET | `/api/v1/billboard-groups?mine=true` | «Мои» группы: владелец группы или аренда входящего билборда |
 | GET | `/api/v1/billboard-groups/{id}` | Одна группа |
 | GET | `/api/v1/admin/billboard-groups` | Список групп (Admin) |
-| POST | `/api/v1/admin/billboard-groups` | Создать группу `{ "name": "Центр" }` (Admin) |
+| POST | `/api/v1/admin/billboard-groups` | Создать группу `{ "name": "Центр", "ownerId": null }` (Admin) |
 | PATCH | `/api/v1/admin/billboard-groups/{id}` | Переименовать (Admin) |
 | DELETE | `/api/v1/admin/billboard-groups/{id}` | Удалить группу вместе с составом (Admin) |
 | POST | `/api/v1/admin/billboard-groups/{id}/billboards` | Добавить билборды `{ "billboardIds": [...] }` (Admin) |
 | DELETE | `/api/v1/admin/billboard-groups/{id}/billboards/{billboardId}` | Убрать билборд (Admin) |
 
 Повторное добавление билборда игнорируется, неизвестный id — 400 `UNKNOWN_BILLBOARD`,
-повтор названия — 409 `GROUP_NAME_EXISTS`. Групповое назначение размещений
-с проверкой всех устройств выполняет планировщик участника 2.
+повтор названия — 409 `GROUP_NAME_EXISTS`.
+
+## Групповое назначение расписания
+
+Один шаблон расписания назначается всем устройствам группы. Проверяются все
+билборды; если хотя бы один не проходит, не создаётся ни одного размещения.
+
+| Метод | Endpoint | Назначение |
+|---|---|---|
+| POST | `/api/v1/placement-groups/validate` | Проверка шаблона на всех устройствах группы |
+| POST | `/api/v1/placement-groups/drafts` | Атомарно создать черновики и зарезервировать бюджет |
+
+Тело запроса:
+
+```json
+{
+  "billboardIds": ["…", "…"],
+  "template": {
+    "videoAssetId": "…",
+    "startDate": "2026-11-10",
+    "endDate": "2026-11-14",
+    "daysOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+    "startTime": "09:00:00",
+    "endTime": "18:00:00",
+    "minimumPlaysPerHour": 6,
+    "videoDurationSeconds": 15
+  }
+}
+```
+
+Ответ проверки (`GroupScheduleValidationResult`):
+
+```json
+{
+  "canPublish": false,
+  "requestedBillboardCount": 2,
+  "availableBillboardCount": 1,
+  "results": [
+    {
+      "billboardId": "…",
+      "billboardName": "Билборд №1",
+      "isAvailable": true,
+      "conflicts": [],
+      "alternatives": []
+    },
+    {
+      "billboardId": "…",
+      "billboardName": "Билборд №2",
+      "isAvailable": false,
+      "conflicts": [{ "code": "INSUFFICIENT_ADVERTISING_CAPACITY", "message": "…" }],
+      "alternatives": [{ "startAt": "…", "endAt": "…" }]
+    }
+  ]
+}
+```
+
+Ответ создания черновиков: `{ "success": true, "placements": [...], "validation": {...} }`.
+Если группа не проходит проверку — 409 `GROUP_PLACEMENT_VALIDATION_FAILED` с тем же
+`validation`; если не хватает денег — 409 `INSUFFICIENT_FUNDS` и ни одного черновика.
+Пустая группа — 400 `GROUP_IS_EMPTY`.
+
+Черновики создаются в одной транзакции и сразу резервируют бюджет; отмена черновика
+или размещения возвращает резерв на баланс.
 
 ## Видео
 
@@ -189,6 +256,8 @@
 | Метод | Endpoint | Назначение |
 |---|---|---|
 | GET | `/api/v1/admin/users?skip=&take=` | Пользователи |
+| POST | `/api/v1/admin/users` | Создать пользователя `{ email, password, displayName, role }` (Admin) |
+| DELETE | `/api/v1/admin/users/{id}` | Удалить пользователя без данных; иначе 409 `USER_HAS_DATA` (Admin) |
 | PATCH | `/api/v1/admin/users/{id}/active` | Блокировка/разблокировка |
 | PATCH | `/api/v1/admin/users/{id}/role` | Роль `Admin` или `Client` |
 | GET | `/api/v1/admin/logs?action=&userId=&from=&to=&skip=&take=` | Журнал действий |

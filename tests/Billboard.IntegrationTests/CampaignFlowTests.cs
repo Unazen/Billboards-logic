@@ -192,6 +192,118 @@ public class CampaignFlowTests
         Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
     }
 
+    [Fact]
+    public async Task Group_assignment_validates_all_billboards_and_creates_drafts()
+    {
+        using var factory = new ApiFactory();
+        using var client = factory.CreateClient();
+
+        var clientToken = await RegisterAndLoginAsync(client, "group-flow@test.local");
+        var adminToken = await LoginAsync(client, ApiFactory.SeedAdminEmail, ApiFactory.SeedAdminPassword);
+
+        var (firstBillboard, _) = await CreateBillboardAsync(client, adminToken);
+        var (secondBillboard, _) = await CreateBillboardAsync(client, adminToken);
+        var videoId = await UploadVideoAsync(client, clientToken);
+        await TopUpAsync(client, clientToken, 50m, "group-topup");
+
+        var body = new
+        {
+            billboardIds = new[] { firstBillboard, secondBillboard },
+            template = new
+            {
+                videoAssetId = videoId,
+                startDate = "2026-11-10",
+                endDate = "2026-11-14",
+                daysOfWeek = new[] { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday" },
+                startTime = "09:00:00",
+                endTime = "18:00:00",
+                minimumPlaysPerHour = 6,
+                videoDurationSeconds = 15
+            }
+        };
+
+        var validationResponse = await PostJsonAsync(client, clientToken, "/api/v1/placement-groups/validate", body);
+        Assert.Equal(HttpStatusCode.OK, validationResponse.StatusCode);
+        var validation = await validationResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(validation.GetProperty("canPublish").GetBoolean());
+        Assert.Equal(2, validation.GetProperty("results").GetArrayLength());
+
+        var draftsResponse = await PostJsonAsync(client, clientToken, "/api/v1/placement-groups/drafts", body);
+        Assert.Equal(HttpStatusCode.OK, draftsResponse.StatusCode);
+        var drafts = await draftsResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(drafts.GetProperty("success").GetBoolean());
+        Assert.Equal(2, drafts.GetProperty("placements").GetArrayLength());
+
+        var wallet = await GetJsonAsync(client, clientToken, "/api/v1/billing/wallet");
+        Assert.Equal(21.6m, wallet.GetProperty("reservedBalance").GetDecimal());
+    }
+
+    [Fact]
+    public async Task Mine_filter_shows_only_rented_billboards_and_groups()
+    {
+        using var factory = new ApiFactory();
+        using var client = factory.CreateClient();
+
+        var clientToken = await RegisterAndLoginAsync(client, "mine@test.local");
+        var otherToken = await RegisterAndLoginAsync(client, "other@test.local");
+        var adminToken = await LoginAsync(client, ApiFactory.SeedAdminEmail, ApiFactory.SeedAdminPassword);
+
+        var (billboardId, _) = await CreateBillboardAsync(client, adminToken);
+        var videoId = await UploadVideoAsync(client, clientToken);
+        await TopUpAsync(client, clientToken, 20m, "mine-topup");
+        var placementId = await CreatePlacementAsync(client, clientToken, videoId, billboardId);
+        await PostJsonAsync(client, clientToken, $"/api/v1/placements/{placementId}/publish", null);
+
+        var mine = await GetJsonAsync(client, clientToken, "/api/v1/billboards?mine=true");
+        Assert.Contains(mine.EnumerateArray(), b => b.GetProperty("id").GetGuid() == billboardId);
+        var otherMine = await GetJsonAsync(client, otherToken, "/api/v1/billboards?mine=true");
+        Assert.Empty(otherMine.EnumerateArray());
+
+        var groupResponse = await PostJsonAsync(client, adminToken, "/api/v1/admin/billboard-groups",
+            new { name = "Моя группа" });
+        var group = await groupResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var groupId = group.GetProperty("id").GetGuid();
+        await PostJsonAsync(client, adminToken, $"/api/v1/admin/billboard-groups/{groupId}/billboards",
+            new { billboardIds = new[] { billboardId } });
+
+        var myGroups = await GetJsonAsync(client, clientToken, "/api/v1/billboard-groups?mine=true");
+        Assert.Single(myGroups.EnumerateArray());
+        var otherGroups = await GetJsonAsync(client, otherToken, "/api/v1/billboard-groups?mine=true");
+        Assert.Empty(otherGroups.EnumerateArray());
+    }
+
+    [Fact]
+    public async Task Admin_can_create_and_delete_user()
+    {
+        using var factory = new ApiFactory();
+        using var client = factory.CreateClient();
+        var adminToken = await LoginAsync(client, ApiFactory.SeedAdminEmail, ApiFactory.SeedAdminPassword);
+
+        var created = await PostJsonAsync(client, adminToken, "/api/v1/admin/users", new
+        {
+            email = "new-user@test.local",
+            password = "NewUser_123",
+            displayName = "Новый пользователь",
+            role = "Client"
+        });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var user = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var userId = user.GetProperty("id").GetGuid();
+
+        var login = await client.PostAsJsonAsync("/api/v1/account/login",
+            new { email = "new-user@test.local", password = "NewUser_123" });
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+
+        using var delete = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/admin/users/{userId}");
+        delete.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var deleted = await client.SendAsync(delete);
+        Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
+
+        var afterDelete = await client.PostAsJsonAsync("/api/v1/account/login",
+            new { email = "new-user@test.local", password = "NewUser_123" });
+        Assert.Equal(HttpStatusCode.Unauthorized, afterDelete.StatusCode);
+    }
+
     // ---------- вспомогательные ----------
 
     private static async Task<string> RegisterAndLoginAsync(HttpClient client, string email)

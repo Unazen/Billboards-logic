@@ -110,14 +110,35 @@ public sealed class TestDb : IDisposable
 
     public void Dispose() => _keepAlive.Dispose();
 
-    /// <summary>Билборд без размещений (для тестов групп).</summary>
-    public async Task<Guid> AddBillboardAsync(string name, BillboardStatus status = BillboardStatus.Online)
+    /// <summary>Билборд без размещений (для тестов групп и владения).</summary>
+    public async Task<Guid> AddBillboardAsync(string name, BillboardStatus status = BillboardStatus.Online, Guid? ownerId = null)
     {
         await using var db = New();
-        var billboard = new BillboardDevice { Id = Guid.NewGuid(), Name = name, Address = "A", Status = status };
+        var billboard = new BillboardDevice { Id = Guid.NewGuid(), Name = name, Address = "A", Status = status, OwnerId = ownerId };
         db.Billboards.Add(billboard);
         await db.SaveChangesAsync();
         return billboard.Id;
+    }
+
+    /// <summary>Билборд + готовое видео владельца (для группового назначения).</summary>
+    public async Task<(Guid BillboardId, Guid VideoId)> AddBillboardWithVideoAsync(
+        Guid ownerId, string name, int capacitySecondsPerHour = 1800, Guid? billboardOwnerId = null)
+    {
+        await using var db = New();
+        var billboard = new BillboardDevice
+        {
+            Id = Guid.NewGuid(), Name = name, Address = "A", Status = BillboardStatus.Online,
+            OwnerId = billboardOwnerId, AdvertCapacitySecondsPerHour = capacitySecondsPerHour, PricePerPlay = 0.05m
+        };
+        var video = new VideoAsset
+        {
+            Id = Guid.NewGuid(), OwnerId = ownerId, OriginalFileName = $"{name}.mp4", StorageKey = "k",
+            ContentType = "video/mp4", SizeBytes = 2048, Status = VideoStatus.Ready,
+            DurationSeconds = 15m, Checksum = "abc", CreatedAt = DateTimeOffset.UtcNow
+        };
+        db.AddRange(billboard, video);
+        await db.SaveChangesAsync();
+        return (billboard.Id, video.Id);
     }
 
     /// <summary>Второе размещение того же ролика на том же билборде (проверка манифеста).</summary>

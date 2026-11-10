@@ -122,6 +122,9 @@ namespace Billboard.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<Guid?>("OwnerId")
+                        .HasColumnType("uuid");
+
                     b.Property<decimal>("PricePerPlay")
                         .HasPrecision(18, 4)
                         .HasColumnType("numeric(18,4)");
@@ -136,6 +139,8 @@ namespace Billboard.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("OwnerId");
+
                     b.ToTable("Billboards", (string)null);
                 });
 
@@ -147,9 +152,15 @@ namespace Billboard.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid?>("OwnerId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OwnerId");
 
                     b.ToTable("BillboardGroups");
                 });
@@ -905,6 +916,22 @@ namespace Billboard.Infrastructure.Persistence.Migrations
                     b.Navigation("Billboard");
 
                     b.Navigation("VideoAsset");
+                });
+
+            modelBuilder.Entity("Billboard.Domain.Entities.BillboardDevice", b =>
+                {
+                    b.HasOne("Billboard.Infrastructure.Persistence.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Billboard.Domain.Entities.BillboardGroup", b =>
+                {
+                    b.HasOne("Billboard.Infrastructure.Persistence.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("Billboard.Domain.Entities.BillboardGroupMember", b =>

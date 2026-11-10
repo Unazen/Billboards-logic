@@ -113,9 +113,22 @@ public interface IDeviceService
     Task<DeviceConfigurationDto> GetConfigurationAsync(Guid billboardId, CancellationToken ct = default);
 }
 
+/// <summary>
+/// Назначение одного расписания группе билбордов: проверка всех устройств и
+/// атомарное создание черновиков с резервированием бюджета.
+/// </summary>
+public interface IPlacementGroupService
+{
+    Task<GroupScheduleValidationDto> ValidateAsync(Guid userId, PlacementGroupRequestDto request, CancellationToken ct = default);
+
+    /// <summary>Всё или ничего: при конфликте любого устройства не создаётся ни одного черновика.</summary>
+    Task<GroupPlacementOperationDto> CreateDraftsAsync(Guid userId, PlacementGroupRequestDto request, CancellationToken ct = default);
+}
+
 public interface IBillboardService
 {
-    Task<IReadOnlyList<BillboardDto>> ListAsync(bool includeDisabled, CancellationToken ct = default);
+    /// <summary>Каталог устройств. ownerUserId != null — только «мои»: владение или действующее размещение.</summary>
+    Task<IReadOnlyList<BillboardDto>> ListAsync(bool includeDisabled, Guid? ownerUserId = null, CancellationToken ct = default);
     Task<BillboardDto> GetAsync(Guid id, CancellationToken ct = default);
     Task<BillboardCreatedDto> CreateAsync(BillboardUpsertRequest request, CancellationToken ct = default);
     Task<BillboardDto> UpdateAsync(Guid id, BillboardUpsertRequest request, CancellationToken ct = default);
@@ -127,7 +140,8 @@ public interface IBillboardService
 /// <summary>Группы билбордов: CRUD и состав участников.</summary>
 public interface IBillboardGroupService
 {
-    Task<IReadOnlyList<BillboardGroupDto>> ListAsync(CancellationToken ct = default);
+    /// <summary>ownerUserId != null — только группы, где пользователь владелец или арендует билборд.</summary>
+    Task<IReadOnlyList<BillboardGroupDto>> ListAsync(Guid? ownerUserId = null, CancellationToken ct = default);
     Task<BillboardGroupDto> GetAsync(Guid id, CancellationToken ct = default);
     Task<BillboardGroupDto> CreateAsync(BillboardGroupUpsertRequest request, CancellationToken ct = default);
     Task<BillboardGroupDto> RenameAsync(Guid id, BillboardGroupUpsertRequest request, CancellationToken ct = default);
@@ -139,6 +153,12 @@ public interface IBillboardGroupService
 public interface IAdminService
 {
     Task<IReadOnlyList<AdminUserDto>> ListUsersAsync(int skip, int take, CancellationToken ct = default);
+
+    /// <summary>Создаёт пользователя с ролью Admin или Client.</summary>
+    Task<AdminUserDto> CreateUserAsync(Guid actorId, CreateUserRequest request, CancellationToken ct = default);
+
+    /// <summary>Удаляет пользователя, если на него не ссылаются данные; иначе 409.</summary>
+    Task DeleteUserAsync(Guid actorId, Guid userId, CancellationToken ct = default);
 
     /// <summary>Блокирует или разблокирует пользователя. Себя заблокировать нельзя.</summary>
     Task<AdminUserDto> SetUserActiveAsync(Guid actorId, Guid userId, bool isActive, CancellationToken ct = default);

@@ -112,9 +112,11 @@ public class AdminTariffsController(ITariffService tariffs) : ApiControllerBase
 [Route("api/v1/billboards")]
 public class BillboardsController(IBillboardService billboards) : ApiControllerBase
 {
+    /// <summary>Каталог доступных билбордов; ?mine=true — только устройства пользователя (владение или аренда).</summary>
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<BillboardDto>>> List(CancellationToken ct) =>
-        Ok(await billboards.ListAsync(false, ct));
+    public async Task<ActionResult<IReadOnlyList<BillboardDto>>> List(
+        [FromQuery] bool mine, CancellationToken ct) =>
+        Ok(await billboards.ListAsync(false, mine ? UserId : null, ct));
 
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<BillboardDto>> Get(Guid id, CancellationToken ct) =>
@@ -129,7 +131,7 @@ public class AdminBillboardsController(IBillboardService billboards) : ApiContro
     /// <summary>Полный список, включая отключённые, со статусом и временем последнего соединения.</summary>
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<BillboardDto>>> List(CancellationToken ct) =>
-        Ok(await billboards.ListAsync(true, ct));
+        Ok(await billboards.ListAsync(true, null, ct));
 
     /// <summary>Создаёт билборд. Токен устройства возвращается один раз — передайте его симулятору.</summary>
     [HttpPost]

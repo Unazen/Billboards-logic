@@ -50,6 +50,7 @@ public static class DependencyInjection
         // Планирование: базовая проверка ёмкости; участник 2 заменяет реализацию своим планировщиком.
         services.AddScoped<IScheduleValidator, CapacityScheduleValidator>();
         services.AddScoped<IPlacementService, PlacementService>();
+        services.AddScoped<IPlacementGroupService, PlacementGroupService>();
         services.AddScoped<IDeviceService, DeviceService>();
 
         return services;

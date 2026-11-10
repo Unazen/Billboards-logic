@@ -57,6 +57,13 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<Guid
             e.Property(x => x.Longitude).HasPrecision(9, 6);
             e.Property(x => x.TimeZoneId).HasMaxLength(100);
             e.Property(x => x.DeviceTokenHash).HasMaxLength(100);
+            e.HasIndex(x => x.OwnerId);
+        });
+
+        b.Entity<BillboardGroup>(e =>
+        {
+            e.Property(x => x.Name).HasMaxLength(100);
+            e.HasIndex(x => x.OwnerId);
         });
 
         b.Entity<BillboardGroupMember>(e =>
@@ -153,6 +160,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<Guid
         b.Entity<VideoAsset>().HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.OwnerId).OnDelete(DeleteBehavior.Restrict);
         b.Entity<AdPlacement>().HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.OwnerId).OnDelete(DeleteBehavior.Restrict);
         b.Entity<Subscription>().HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<BillboardDevice>().HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.OwnerId).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<BillboardGroup>().HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.OwnerId).OnDelete(DeleteBehavior.Restrict);
 
         // SQLite (используется в тестах) не умеет сортировать и сравнивать DateTimeOffset.
         if (Database.ProviderName?.Contains("Sqlite", StringComparison.OrdinalIgnoreCase) == true)

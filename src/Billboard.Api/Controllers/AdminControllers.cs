@@ -16,6 +16,23 @@ public class AdminUsersController(IAdminService admin) : ApiControllerBase
         [FromQuery] int skip = 0, [FromQuery] int take = 50, CancellationToken ct = default) =>
         Ok(await admin.ListUsersAsync(skip, take, ct));
 
+    /// <summary>Создание пользователя с ролью Admin или Client.</summary>
+    [HttpPost]
+    public async Task<ActionResult<AdminUserDto>> Create(
+        [FromBody] CreateUserRequest request, CancellationToken ct)
+    {
+        var created = await admin.CreateUserAsync(UserId, request, ct);
+        return Created($"/api/v1/admin/users/{created.Id}", created);
+    }
+
+    /// <summary>Удаление пользователя, если на него не ссылаются данные (иначе 409).</summary>
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+    {
+        await admin.DeleteUserAsync(UserId, id, ct);
+        return NoContent();
+    }
+
     /// <summary>Блокировка / разблокировка пользователя.</summary>
     [HttpPatch("{id:guid}/active")]
     public async Task<ActionResult<AdminUserDto>> SetActive(Guid id, [FromBody] SetUserActiveRequest request, CancellationToken ct) =>

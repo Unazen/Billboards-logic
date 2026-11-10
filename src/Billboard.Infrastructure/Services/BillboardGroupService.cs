@@ -14,12 +14,28 @@ public sealed class BillboardGroupService(AppDbContext db) : IBillboardGroupServ
 {
     private const int MaxMembers = 500;
 
-    public async Task<IReadOnlyList<BillboardGroupDto>> ListAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<BillboardGroupDto>> ListAsync(Guid? ownerUserId = null, CancellationToken ct = default)
     {
         var groups = await Query()
             .OrderBy(g => g.Name)
             .ToListAsync(ct);
-        return groups.Select(Map).ToList();
+
+        if (ownerUserId is not { } userId)
+            return groups.Select(Map).ToList();
+
+        // «Мои группы»: группа принадлежит пользователю или содержит устройство,
+        // которым он владеет либо которое арендует (есть его размещение).
+        var myBillboardIds = await db.Billboards.AsNoTracking()
+            .Where(b => b.OwnerId == userId
+                        || db.AdPlacements.Any(p => p.BillboardId == b.Id && p.OwnerId == userId))
+            .Select(b => b.Id)
+            .ToListAsync(ct);
+
+        return groups
+            .Where(g => g.OwnerId == userId
+                        || g.Members.Any(m => myBillboardIds.Contains(m.BillboardId)))
+            .Select(Map)
+            .ToList();
     }
 
     public async Task<BillboardGroupDto> GetAsync(Guid id, CancellationToken ct = default) =>
@@ -29,8 +45,9 @@ public sealed class BillboardGroupService(AppDbContext db) : IBillboardGroupServ
     {
         var name = NormalizeName(request.Name);
         await EnsureNameFreeAsync(name, null, ct);
+        await EnsureOwnerExistsAsync(request.OwnerId, ct);
 
-        var group = new BillboardGroup { Id = Guid.NewGuid(), Name = name };
+        var group = new BillboardGroup { Id = Guid.NewGuid(), Name = name, OwnerId = request.OwnerId };
         db.BillboardGroups.Add(group);
         SystemLogWriter.Add(db, null, "BillboardGroupCreated", nameof(BillboardGroup), group.Id, "OK", name);
         await db.SaveChangesAsync(ct);
@@ -136,9 +153,16 @@ public sealed class BillboardGroupService(AppDbContext db) : IBillboardGroupServ
             throw AppException.Conflict("GROUP_NAME_EXISTS", $"Группа «{name}» уже существует.");
     }
 
+    private async Task EnsureOwnerExistsAsync(Guid? ownerId, CancellationToken ct)
+    {
+        if (ownerId is { } id && !await db.Users.AnyAsync(u => u.Id == id, ct))
+            throw AppException.NotFound("Владелец группы");
+    }
+
     private static BillboardGroupDto Map(BillboardGroup group) => new(
         group.Id,
         group.Name,
+        group.OwnerId,
         group.Members
             .Where(m => m.Billboard is not null)
             .Select(m => BillboardService.Map(m.Billboard!))
