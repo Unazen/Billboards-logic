@@ -3,6 +3,8 @@
 ##
 ## Get latest from `dotnet new gitignore`
 
+BillboardSystem-Project-Context.md
+
 # dotenv files
 .env
 
