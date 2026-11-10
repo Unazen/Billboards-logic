@@ -284,6 +284,95 @@ P2-коды `BILLBOARD_OFFLINE`, `QUOTA_EXCEEDS_CAPACITY`, `INVALID_*` отно�
 внутренней библиотеке `Billboard.Scheduling`; в API P3 используется его
 собственный `CapacityScheduleValidator`.
 
+### 2.3. Назначение расписания группе
+
+P3 уже отдаёт CRUD групп (`/api/v1/billboard-groups` и админские пути). Для
+назначения одного расписания группе нужен отдельный сценарный endpoint; логику
+проверки даёт P2 `GroupPlacementService`.
+
+```http
+POST /api/v1/placement-groups/validate
+Authorization: Bearer <user token>
+```
+
+```json
+{
+  "billboardIds": [
+    "d2f3f8d9-6a3e-4e91-9877-2b8e0a5f4321",
+    "0f7d1c2e-1111-4a3b-9a10-aaaaaaaaaaaa"
+  ],
+  "template": {
+    "videoAssetId": "2a8c4c12-1e44-4d3f-9d8a-7a8f58f4a122",
+    "startDate": "2026-11-10",
+    "endDate": "2026-11-14",
+    "daysOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+    "startTime": "09:00:00",
+    "endTime": "18:00:00",
+    "minimumPlaysPerHour": 6,
+    "videoDurationSeconds": 15
+  }
+}
+```
+
+Ответ — `GroupScheduleValidationResult`:
+
+```json
+{
+  "canPublish": false,
+  "requestedBillboardCount": 2,
+  "availableBillboardCount": 1,
+  "results": [
+    {
+      "billboardId": "d2f3f8d9-6a3e-4e91-9877-2b8e0a5f4321",
+      "billboardName": "Билборд №1",
+      "validation": { "isAvailable": true, "conflicts": [], "alternatives": [] }
+    },
+    {
+      "billboardId": "0f7d1c2e-1111-4a3b-9a10-aaaaaaaaaaaa",
+      "billboardName": "Билборд №2",
+      "validation": {
+        "isAvailable": false,
+        "conflicts": [{
+          "code": "INSUFFICIENT_ADVERTISING_CAPACITY",
+          "message": "Недостаточно рекламной ёмкости в 10:00–11:00."
+        }],
+        "alternatives": []
+      }
+    }
+  ]
+}
+```
+
+Создание черновиков (все или ничего):
+
+```http
+POST /api/v1/placement-groups/drafts
+Authorization: Bearer <user token>
+```
+
+Тело то же; ответ:
+
+```json
+{
+  "success": true,
+  "placements": [
+    { "id": "...", "billboardId": "...", "status": "Draft" }
+  ],
+  "validation": { "canPublish": true }
+}
+```
+
+Требования к P3:
+
+- вызывать `GroupPlacementService.ValidateAsync` / `CreateDraftsAsync`;
+- выполнять создание в одной транзакции с проверкой и резервированием;
+- не публиковать группу частично, если хотя бы одно устройство не прошло;
+- для «Моих групп» нужен владелец группы и фильтрация; сейчас `BillboardGroup`
+  в P3 не содержит `OwnerId`, это отдельное решение P3/P1.
+
+P1 показывает `results` по устройствам и не даёт опубликовать, пока
+`canPublish = false`.
+
 ## 3. Интеграционные требования
 
 ### P3 (сделано)

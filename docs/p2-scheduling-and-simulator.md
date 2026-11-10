@@ -16,7 +16,7 @@
 | Симулятор на C# с локальным кэшем | `src/Billboard.Simulator` | `SimulatorRunnerTests` |
 | Загрузка по manifest, ротация, офлайн | `Api`, `Runtime`, `Cache` | `ManifestSourcesTests`, `PlaybackRotatorTests`, `SimulatorRunnerTests` |
 | Heartbeat и события показов | `Api/SimulatorApi.cs`, `Runtime/SimulatorRunner.cs` | `SimulatorRunnerTests` |
-| Модульные тесты алгоритмов | `tests/Billboard.Scheduling.Tests` | 69 тестов |
+| Модульные тесты алгоритмов | `tests/Billboard.Scheduling.Tests` | 76 тестов |
 | Тесты симулятора | `tests/Billboard.Simulator.Tests` | 52 теста |
 
 Дополнительно сделаны импорт/экспорт расписания в JSON и восстановление
@@ -234,6 +234,18 @@ requiredSecondsPerHour = MinimumPlaysPerHour * VideoDurationSeconds
 равен `true` только если прошли все. Частичная публикация запрещена: интерфейс
 должен показать список проблемных устройств.
 
+`GroupPlacementService` закрывает сценарий назначения:
+
+- `ValidateAsync` загружает билборды группы и существующие размещения, проверяет
+  каждое устройство;
+- `CreateDraftsAsync` создаёт по одному черновику на билборд только если прошли
+  все; при ошибке сохранения уже созданные черновики удаляются;
+- группа с дублями ID дедуплицируется, пустая группа отклоняется.
+
+P3 должен вызывать сервис внутри транзакции и после успешной проверки
+резервировать бюджет/публиковать размещения. Контракт endpoint'ов для P1 —
+в [p2-api-contract.md](p2-api-contract.md).
+
 ### 5.6. Очередь на час
 
 `PlaybackQueueBuilder` строит план на календарный час:
@@ -402,7 +414,7 @@ dotnet test  BillboardSystem.P2.sln
 dotnet run --project src/Billboard.Simulator -- --demo
 ```
 
-Ожидается: сборка без ошибок, 121 тест, успешное демо.
+Ожидается: сборка без ошибок, 128 тестов, успешное демо.
 
 ## 11. Git
 
