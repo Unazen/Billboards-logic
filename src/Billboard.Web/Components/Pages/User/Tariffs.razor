@@ -1,0 +1,85 @@
+@page "/tariffs"
+
+@inject BillingDemoStore Billing
+@inject DemoUserSession Session
+
+<PageTitle>Тарифы | Billboard</PageTitle>
+
+<div class="client-page">
+    <div class="client-page-heading">
+        <div>
+            <h1>Тарифы</h1>
+            <p>Выберите возможности кабинета для ваших рекламных размещений</p>
+        </div>
+        <a class="client-count" href="/wallet">Баланс: @Balance.ToString("N0", RussianCulture) ₽</a>
+    </div>
+
+    <div class="client-demo-note">
+        <span aria-hidden="true">ⓘ</span>
+        Демо-режим: подключение тарифа и списание средств пока выполняются в тестовых данных.
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(Message))
+    {
+        <div class="billing-message" role="status">@Message</div>
+    }
+
+    <div class="tariff-grid">
+        @foreach (var tariff in Billing.GetTariffs())
+        {
+            var isCurrent = tariff.Id == CurrentTariff.Id;
+            <section class="client-panel tariff-card @(isCurrent ? "current" : string.Empty)" @key="tariff.Id">
+                <div class="tariff-card-heading">
+                    <div>
+                        <span class="tariff-eyebrow">ТАРИФ</span>
+                        <h2>@tariff.Name</h2>
+                    </div>
+                    @if (isCurrent)
+                    {
+                        <span class="tariff-current">Подключён</span>
+                    }
+                </div>
+                <p class="tariff-description">@tariff.Description</p>
+                <div class="tariff-price">
+                    <strong>@(tariff.MonthlyPrice == 0 ? "Бесплатно" : $"{tariff.MonthlyPrice.ToString("N0", RussianCulture)} ₽")</strong>
+                    @if (tariff.MonthlyPrice > 0)
+                    {
+                        <span>/ месяц</span>
+                    }
+                </div>
+                <ul class="tariff-features">
+                    @foreach (var feature in tariff.Features)
+                    {
+                        <li><span aria-hidden="true">✓</span>@feature</li>
+                    }
+                </ul>
+                @if (isCurrent)
+                {
+                    <button class="billing-button secondary" disabled>Текущий тариф</button>
+                }
+                else
+                {
+                    <button class="billing-button" @onclick="() => Subscribe(tariff.Id)">
+                        Подключить тариф
+                    </button>
+                }
+            </section>
+        }
+    </div>
+</div>
+
+@code {
+    private static readonly System.Globalization.CultureInfo RussianCulture =
+        System.Globalization.CultureInfo.GetCultureInfo("ru-RU");
+
+    private string? Message { get; set; }
+    private string AccountKey => Session.IsAdministrator ? "admin" : $"user-{Session.CurrentUserId}";
+    private decimal Balance => Billing.GetBalance(AccountKey);
+    private DemoTariff CurrentTariff => Billing.GetCurrentTariff(AccountKey);
+
+    private void Subscribe(string tariffId)
+    {
+        Billing.TrySubscribe(AccountKey, tariffId, out var message);
+        Message = message;
+    }
+}
