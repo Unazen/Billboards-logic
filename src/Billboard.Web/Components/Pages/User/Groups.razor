@@ -1,0 +1,96 @@
+@page "/my-groups"
+
+@inject BillboardApiClient Api
+
+<PageTitle>Мои группы устройств | Billboard</PageTitle>
+
+<div class="client-page">
+    <div class="client-page-heading">
+        <div>
+            <h1>Мои группы устройств</h1>
+            <p>Устройства, объединённые для назначения рекламных размещений</p>
+        </div>
+        <span class="client-count">Групп устройств: @MyGroups.Count</span>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+    {
+        <div class="billing-message" role="alert">@ErrorMessage</div>
+    }
+    else if (IsLoading)
+    {
+        <div class="client-panel client-empty-state">Загрузка групп…</div>
+    }
+    else if (MyGroups.Count == 0)
+    {
+        <section class="client-panel client-empty-state">
+            <h2>Групп устройств пока нет</h2>
+            <p>Группы устройств будут отображаться здесь, когда они будут созданы и назначены вашему аккаунту.</p>
+        </section>
+    }
+    else
+    {
+        <div class="client-group-grid">
+            @foreach (var group in MyGroups)
+            {
+                <section class="client-panel client-group-card" @key="group.Id">
+                    <div class="client-group-title">
+                        <span class="client-stat-icon violet">▤</span>
+                        <div>
+                            <h2>@group.Name</h2>
+                            <span>@group.Billboards.Count устройств</span>
+                        </div>
+                    </div>
+                    @if (group.Billboards.Count == 0)
+                    {
+                        <div class="client-empty">В группе пока нет устройств.</div>
+                    }
+                    else
+                    {
+                        <div class="client-group-devices">
+                            @foreach (var device in group.Billboards)
+                            {
+                                <div class="client-group-device" @key="device.Id">
+                                    <span>▣</span>
+                                    <strong>@device.Name</strong>
+                                    <span class="client-status @(IsOnline(device.Status) ? "online" : "offline")"><i></i>@device.Status</span>
+                                </div>
+                            }
+                        </div>
+                    }
+                    <a class="client-table-link" href="/schedules">Мои расписания →</a>
+                </section>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<Billboard.Application.Contracts.BillboardGroupDto> MyGroups { get; set; } = [];
+    private string? ErrorMessage { get; set; }
+    private bool IsLoading { get; set; } = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            MyGroups = await Api.GetListAsync<Billboard.Application.Contracts.BillboardGroupDto>("api/v1/billboard-groups?mine=true");
+        }
+        catch (BillboardApiException exception)
+        {
+            ErrorMessage = exception.Message;
+        }
+        catch (HttpRequestException)
+        {
+            ErrorMessage = "Не удалось подключиться к API.";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private static bool IsOnline(string status) =>
+        status.Equals("Online", StringComparison.OrdinalIgnoreCase) ||
+        status.Equals("В сети", StringComparison.OrdinalIgnoreCase);
+}

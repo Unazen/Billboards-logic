@@ -1,0 +1,106 @@
+@page "/admin"
+
+@inject BillboardApiClient Api
+
+<PageTitle>Администрирование | Billboard</PageTitle>
+
+<div class="admin-page">
+    <div class="admin-heading">
+        <div><h1>Панель администратора</h1><p>Общее состояние системы и управление ресурсами</p></div>
+        <span class="admin-role">Администратор</span>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+    {
+        <div class="billing-message" role="alert">@ErrorMessage</div>
+    }
+    else if (IsLoading)
+    {
+        <div class="admin-section">Загрузка данных системы…</div>
+    }
+    else
+    {
+        <div class="admin-stats">
+            <div class="admin-stat-card"><span class="stat-icon">👥</span><span class="stat-label">Пользователи</span><strong>@UserCountLabel</strong><NavLink href="/admin/users">Управление пользователями →</NavLink></div>
+            <div class="admin-stat-card"><span class="stat-icon">📺</span><span class="stat-label">Билборды</span><strong>@Devices.Count</strong><NavLink href="/admin/billboards">Управление билбордами →</NavLink></div>
+            <div class="admin-stat-card"><span class="stat-icon">🟢</span><span class="stat-label">В сети</span><strong>@Devices.Count(device => IsOnline(device.Status))</strong><span class="stat-description">Устройств работают</span></div>
+            <div class="admin-stat-card"><span class="stat-icon">🔴</span><span class="stat-label">Не в сети</span><strong>@Devices.Count(device => !IsOnline(device.Status))</strong><span class="stat-description">Требуют проверки</span></div>
+        </div>
+
+        <section class="admin-section">
+            <div class="section-heading"><div><h2>Последние устройства</h2><p>Текущее состояние билбордов системы</p></div><NavLink href="/admin/billboards" class="admin-link">Все устройства →</NavLink></div>
+            <div class="admin-table-wrapper">
+                <table class="admin-table">
+                    <thead><tr><th>Устройство</th><th>Местоположение</th><th>Владелец</th><th>Состояние</th></tr></thead>
+                    <tbody>
+                        @foreach (var device in Devices.Take(5))
+                        {
+                            var owner = Users.FirstOrDefault(user => user.Id == device.OwnerId);
+                            <tr><td>@device.Name</td><td>@device.Address</td><td>@(owner?.DisplayName ?? "Не назначен")</td><td><span class="status @(IsOnline(device.Status) ? "online" : "offline")">@device.Status</span></td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="admin-section">
+            <div class="section-heading"><div><h2>Последние события</h2><p>Недавние системные операции и предупреждения</p></div><NavLink href="/admin/logs" class="admin-link">Системные логи →</NavLink></div>
+            <div class="admin-event-list">
+                @foreach (var entry in Logs)
+                {
+                    <div class="admin-event-row" @key="entry.Id">
+                        <span class="admin-event-indicator @EventClass(entry.Result)"></span>
+                        <div class="admin-event-content"><strong>@entry.Action</strong><small>@entry.EntityType @entry.EntityId · @(entry.UserId?.ToString() ?? "Система")</small></div>
+                        <time datetime="@entry.CreatedAt.ToString("O")">@entry.CreatedAt.ToLocalTime().ToString("HH:mm")</time>
+                    </div>
+                }
+            </div>
+        </section>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<Billboard.Application.Contracts.AdminUserDto> Users { get; set; } = [];
+    private IReadOnlyList<Billboard.Application.Contracts.BillboardDto> Devices { get; set; } = [];
+    private IReadOnlyList<Billboard.Application.Contracts.SystemLogDto> Logs { get; set; } = [];
+    private string? ErrorMessage { get; set; }
+    private bool IsLoading { get; set; } = true;
+    private string UserCountLabel => Users.Count >= 100 ? "100+" : Users.Count.ToString();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var usersTask = Api.GetListAsync<Billboard.Application.Contracts.AdminUserDto>("api/v1/admin/users?skip=0&take=100");
+            var devicesTask = Api.GetListAsync<Billboard.Application.Contracts.BillboardDto>("api/v1/admin/billboards");
+            var logsTask = Api.GetListAsync<Billboard.Application.Contracts.SystemLogDto>("api/v1/admin/logs?take=3");
+            await Task.WhenAll(usersTask, devicesTask, logsTask);
+            Users = await usersTask;
+            Devices = await devicesTask;
+            Logs = await logsTask;
+        }
+        catch (BillboardApiException exception)
+        {
+            ErrorMessage = exception.Message;
+        }
+        catch (HttpRequestException)
+        {
+            ErrorMessage = "Не удалось подключиться к API.";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private static bool IsOnline(string status) =>
+        status.Equals("Online", StringComparison.OrdinalIgnoreCase) ||
+        status.Equals("В сети", StringComparison.OrdinalIgnoreCase);
+
+    private static string EventClass(string result) => result.ToLowerInvariant() switch
+    {
+        "failed" or "error" => "error",
+        "warning" => "warning",
+        _ => "info"
+    };
+}

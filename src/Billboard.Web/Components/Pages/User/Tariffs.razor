@@ -1,0 +1,157 @@
+@page "/tariffs"
+
+@inject BillboardApiClient Api
+
+<PageTitle>Тарифы | Billboard</PageTitle>
+
+<div class="client-page">
+    <div class="client-page-heading">
+        <div>
+            <h1>Тарифы</h1>
+            <p>Возможности кабинета для ваших рекламных размещений</p>
+        </div>
+        @if (Wallet is not null)
+        {
+            <a class="client-count" href="/wallet">Баланс: @Wallet.Balance.ToString("N0", RussianCulture) @Wallet.Currency</a>
+        }
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+    {
+        <div class="billing-message" role="alert">@ErrorMessage</div>
+    }
+    else if (IsLoading)
+    {
+        <div class="client-panel client-empty-state">Загрузка тарифов…</div>
+    }
+    else
+    {
+        @if (!string.IsNullOrWhiteSpace(Message))
+        {
+            <div class="billing-message" role="status">@Message</div>
+        }
+
+        <div class="tariff-grid">
+            @foreach (var tariff in TariffItems)
+            {
+                var isCurrent = tariff.Id == CurrentTariff?.Id;
+                <section class="client-panel tariff-card @(isCurrent ? "current" : string.Empty)" @key="tariff.Id">
+                    <div class="tariff-card-heading">
+                        <div>
+                            <span class="tariff-eyebrow">ТАРИФ</span>
+                            <h2>@tariff.Name</h2>
+                        </div>
+                        @if (isCurrent)
+                        {
+                            <span class="tariff-current">Подключён</span>
+                        }
+                    </div>
+                    <div class="tariff-price">
+                        <strong>@(tariff.MonthlyPrice == 0 ? "Бесплатно" : $"{tariff.MonthlyPrice.ToString("N0", RussianCulture)} {Wallet?.Currency ?? "₽"}")</strong>
+                        @if (tariff.MonthlyPrice > 0)
+                        {
+                            <span>/ месяц</span>
+                        }
+                    </div>
+                    <ul class="tariff-features">
+                        @foreach (var feature in Features(tariff))
+                        {
+                            <li><span aria-hidden="true">✓</span>@feature</li>
+                        }
+                    </ul>
+                    @if (isCurrent)
+                    {
+                        <button class="billing-button secondary" disabled>Текущий тариф</button>
+                    }
+                    else
+                    {
+                        <button class="billing-button" @onclick="() => SubscribeAsync(tariff)" disabled="@IsBusy">
+                            Подключить тариф
+                        </button>
+                    }
+                </section>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private static readonly System.Globalization.CultureInfo RussianCulture =
+        System.Globalization.CultureInfo.GetCultureInfo("ru-RU");
+
+    private IReadOnlyList<Billboard.Application.Contracts.TariffDto> TariffItems { get; set; } = [];
+    private Billboard.Application.Contracts.TariffDto? CurrentTariff { get; set; }
+    private Billboard.Application.Contracts.WalletDto? Wallet { get; set; }
+    private string? Message { get; set; }
+    private string? ErrorMessage { get; set; }
+    private bool IsLoading { get; set; } = true;
+    private bool IsBusy { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var tariffTask = Api.GetListAsync<Billboard.Application.Contracts.TariffDto>("api/v1/tariffs");
+            var currentTask = Api.GetAsync<Billboard.Application.Contracts.TariffDto>("api/v1/tariffs/current");
+            var walletTask = Api.GetAsync<Billboard.Application.Contracts.WalletDto>("api/v1/billing/wallet");
+            await Task.WhenAll(tariffTask, currentTask, walletTask);
+            TariffItems = await tariffTask;
+            CurrentTariff = await currentTask;
+            Wallet = await walletTask;
+        }
+        catch (BillboardApiException exception)
+        {
+            ErrorMessage = exception.Message;
+        }
+        catch (HttpRequestException)
+        {
+            ErrorMessage = "Не удалось подключиться к API.";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task SubscribeAsync(Billboard.Application.Contracts.TariffDto tariff)
+    {
+        IsBusy = true;
+        Message = null;
+        ErrorMessage = null;
+        try
+        {
+            var subscription = await Api.PostAsync<Billboard.Application.Contracts.SubscriptionDto>(
+                "api/v1/billing/subscriptions",
+                new Billboard.Application.Contracts.SubscribeRequest(tariff.Id, Guid.NewGuid().ToString("N")));
+            CurrentTariff = tariff;
+            Message = $"Тариф «{subscription.TariffName}» подключён до {subscription.EndAt.ToLocalTime():dd.MM.yyyy}.";
+        }
+        catch (BillboardApiException exception)
+        {
+            ErrorMessage = exception.Message;
+        }
+        catch (HttpRequestException)
+        {
+            ErrorMessage = "Не удалось подключиться к API.";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private static IReadOnlyList<string> Features(Billboard.Application.Contracts.TariffDto tariff) =>
+    [
+        $"До {tariff.MaxVideoCount} рекламных материалов",
+        $"Максимальный размер файла: {FormatBytes(tariff.MaxVideoSizeBytes)}",
+        $"Длительность видео до {tariff.MaxVideoDurationSeconds / 60} мин",
+        tariff.AdvancedStatistics ? "Расширенная статистика" : "Базовая статистика",
+        tariff.PriorityProcessing ? "Приоритетная обработка" : "Стандартная обработка",
+        $"Скидка за несколько билбордов: {tariff.MultiBillboardDiscountPercent:N0}%"
+    ];
+
+    private static string FormatBytes(long bytes) =>
+        bytes >= 1024L * 1024 * 1024
+            ? $"{bytes / (1024d * 1024 * 1024):N0} ГБ"
+            : $"{bytes / (1024d * 1024):N0} МБ";
+}

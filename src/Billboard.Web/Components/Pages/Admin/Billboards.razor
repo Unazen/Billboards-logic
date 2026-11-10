@@ -1,0 +1,178 @@
+@page "/admin/billboards"
+
+@inject BillboardApiClient Api
+
+<PageTitle>Билборды | Billboard</PageTitle>
+
+<div class="management-page">
+    <div class="management-heading">
+        <div>
+            <h1>Билборды</h1>
+            <p>Управление устройствами и их владельцами</p>
+            <a href="/admin/groups">Управление группами устройств →</a>
+        </div>
+        <span class="management-count">Всего: @Devices.Count</span>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(Message))
+    {
+        <p class="form-message" role="status">@Message</p>
+    }
+    @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+    {
+        <p class="form-message" role="alert">@ErrorMessage</p>
+    }
+
+    <section class="management-card">
+        <h2>Добавить билборд</h2>
+        <div class="add-form">
+            <input @bind="NewName" placeholder="Название устройства" maxlength="200" />
+            <input @bind="NewAddress" placeholder="Местоположение" maxlength="500" />
+            <select @bind="SelectedOwnerId">
+                <option value="">Без владельца</option>
+                @foreach (var user in Users.Where(user => user.Roles.Contains("Client", StringComparer.OrdinalIgnoreCase)))
+                {
+                    <option value="@user.Id">@user.DisplayName (@user.Email)</option>
+                }
+            </select>
+            <button class="primary-button" @onclick="CreateDeviceAsync" disabled="@IsBusy">+ Добавить</button>
+        </div>
+    </section>
+
+    <section class="management-card">
+        <h2>Список устройств</h2>
+        @if (IsLoading)
+        {
+            <p>Загрузка устройств…</p>
+        }
+        else
+        {
+            <div class="table-wrapper">
+                <table class="management-table">
+                    <thead><tr><th>ID</th><th>Название</th><th>Местоположение</th><th>Владелец</th><th>Состояние</th><th>Последнее соединение</th><th>Действие</th></tr></thead>
+                    <tbody>
+                        @foreach (var device in Devices)
+                        {
+                            var owner = Users.FirstOrDefault(user => user.Id == device.OwnerId);
+                            var disabled = device.Status.Equals("Disabled", StringComparison.OrdinalIgnoreCase);
+                            <tr @key="device.Id">
+                                <td>@device.Id</td>
+                                <td>@device.Name</td>
+                                <td>@device.Address</td>
+                                <td>@(owner?.DisplayName ?? "Не назначен")</td>
+                                <td>@device.Status</td>
+                                <td>@(device.LastSeenAt?.ToLocalTime().ToString("dd.MM.yyyy HH:mm") ?? "Нет данных")</td>
+                                <td><button class="action-button" @onclick="() => SetDeviceDisabledAsync(device)" disabled="@IsBusy">@(disabled ? "Отключено" : "Отключить")</button></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    private IReadOnlyList<Billboard.Application.Contracts.BillboardDto> Devices { get; set; } = [];
+    private IReadOnlyList<Billboard.Application.Contracts.AdminUserDto> Users { get; set; } = [];
+    private string NewName { get; set; } = string.Empty;
+    private string NewAddress { get; set; } = string.Empty;
+    private string SelectedOwnerId { get; set; } = string.Empty;
+    private string? Message { get; set; }
+    private string? ErrorMessage { get; set; }
+    private bool IsLoading { get; set; } = true;
+    private bool IsBusy { get; set; }
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task CreateDeviceAsync()
+    {
+        IsBusy = true;
+        Message = null;
+        ErrorMessage = null;
+        try
+        {
+            Guid? ownerId = Guid.TryParse(SelectedOwnerId, out var owner) ? owner : null;
+            var created = await Api.PostAsync<Billboard.Application.Contracts.BillboardCreatedDto>(
+                "api/v1/admin/billboards",
+                new Billboard.Application.Contracts.BillboardUpsertRequest(
+                    NewName.Trim(),
+                    NewAddress.Trim(),
+                    null,
+                    null,
+                    32L * 1024 * 1024 * 1024,
+                    60,
+                    0,
+                    null,
+                    ownerId));
+            NewName = NewAddress = string.Empty;
+            Message = $"Устройство создано. Сохраните токен устройства: {created.DeviceToken}";
+            await LoadAsync();
+        }
+        catch (BillboardApiException exception)
+        {
+            ErrorMessage = exception.Message;
+        }
+        catch (HttpRequestException)
+        {
+            ErrorMessage = "Не удалось подключиться к API.";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task SetDeviceDisabledAsync(Billboard.Application.Contracts.BillboardDto device)
+    {
+        if (device.Status.Equals("Disabled", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        IsBusy = true;
+        Message = null;
+        ErrorMessage = null;
+        try
+        {
+            await Api.PostAsync<Billboard.Application.Contracts.BillboardDto>($"api/v1/admin/billboards/{device.Id}/disable", new { });
+            Message = $"Устройство {device.Name} отключено.";
+            await LoadAsync();
+        }
+        catch (BillboardApiException exception)
+        {
+            ErrorMessage = exception.Message;
+        }
+        catch (HttpRequestException)
+        {
+            ErrorMessage = "Не удалось подключиться к API.";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            var devicesTask = Api.GetListAsync<Billboard.Application.Contracts.BillboardDto>("api/v1/admin/billboards");
+            var usersTask = Api.GetListAsync<Billboard.Application.Contracts.AdminUserDto>("api/v1/admin/users?skip=0&take=100");
+            await Task.WhenAll(devicesTask, usersTask);
+            Devices = await devicesTask;
+            Users = await usersTask;
+            ErrorMessage = null;
+        }
+        catch (BillboardApiException exception)
+        {
+            ErrorMessage = exception.Message;
+        }
+        catch (HttpRequestException)
+        {
+            ErrorMessage = "Не удалось подключиться к API.";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+}

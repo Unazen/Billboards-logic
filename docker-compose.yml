@@ -1,7 +1,8 @@
 # Запуск: cp .env.example .env && docker compose up --build
 # API:     http://localhost:8080   (OpenAPI — только в Development)
+# Web:     http://localhost:8081
 # MinIO:   http://localhost:9001   (консоль)
-# Web и симуляторы добавляют участники 1 и 2 в свои ветки.
+# Симуляторы добавляет участник 2.
 services:
   postgres:
     image: postgres:17
@@ -63,7 +64,24 @@ services:
     volumes:
       - dpkeys:/keys
 
+  web:
+    build:
+      context: .
+      dockerfile: src/Billboard.Web/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      BillboardApi__BaseUrl: http://api:8080/
+      DataProtection__KeysPath: /keys
+    ports:
+      - "8081:8080"
+    volumes:
+      - webkeys:/keys
+
 volumes:
   pgdata:
   miniodata:
   dpkeys:
+  webkeys:

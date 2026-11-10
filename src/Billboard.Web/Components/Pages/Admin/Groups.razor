@@ -1,0 +1,230 @@
+@page "/admin/groups"
+
+@inject BillboardApiClient Api
+
+<PageTitle>Группы билбордов | Billboard</PageTitle>
+
+<div class="management-page">
+    <div class="management-heading">
+        <div><h1>Группы билбордов</h1><p>Объединение устройств для централизованного управления</p></div>
+        <span class="management-count">Всего групп: @GroupItems.Count</span>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(Message))
+    {
+        <p class="form-message" role="status">@Message</p>
+    }
+    @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+    {
+        <p class="form-message" role="alert">@ErrorMessage</p>
+    }
+
+    <section class="management-card">
+        <h2>Создать группу</h2>
+        <div class="add-form">
+            <input @bind="NewGroupName" placeholder="Название группы" maxlength="100" />
+            <select @bind="SelectedOwnerId">
+                <option value="">Без владельца</option>
+                @foreach (var user in Users.Where(user => user.Roles.Contains("Client", StringComparer.OrdinalIgnoreCase)))
+                {
+                    <option value="@user.Id">@user.DisplayName (@user.Email)</option>
+                }
+            </select>
+            <button class="primary-button" @onclick="CreateGroupAsync" disabled="@IsBusy">+ Создать группу</button>
+        </div>
+    </section>
+
+    @if (IsLoading)
+    {
+        <section class="management-card">Загрузка групп…</section>
+    }
+    else if (GroupItems.Count == 0)
+    {
+        <section class="management-card"><p class="empty-message">Групп пока нет.</p></section>
+    }
+    else
+    {
+        @foreach (var group in GroupItems)
+        {
+            <section class="management-card group-card" @key="group.Id">
+                <div class="group-heading">
+                    <div><h2>@group.Name</h2><span class="group-owner">Владелец: @OwnerName(group.OwnerId)</span></div>
+                    <button class="delete-button" @onclick="() => DeleteGroupAsync(group)" disabled="@IsBusy">Удалить группу</button>
+                </div>
+                <div class="group-devices">
+                    <h3>Устройства в группе (@group.Billboards.Count)</h3>
+                    @if (group.Billboards.Count > 0)
+                    {
+                        <div class="table-wrapper">
+                            <table class="management-table">
+                                <thead><tr><th>Название</th><th>Местоположение</th><th>Состояние</th><th>Действие</th></tr></thead>
+                                <tbody>
+                                    @foreach (var device in group.Billboards)
+                                    {
+                                        <tr @key="device.Id">
+                                            <td>@device.Name</td><td>@device.Address</td><td>@device.Status</td>
+                                            <td><button class="delete-button" @onclick="() => RemoveBillboardAsync(group, device)" disabled="@IsBusy">Убрать</button></td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="empty-message">В этой группе пока нет устройств.</p>
+                    }
+
+                    @{
+                        var availableDevices = Devices.Where(device => group.Billboards.All(member => member.Id != device.Id)).ToList();
+                    }
+                    <div class="add-device-form">
+                        <h3>Добавить устройство</h3>
+                        @if (availableDevices.Count == 0)
+                        {
+                            <p class="empty-message">Нет устройств, доступных для добавления.</p>
+                        }
+                        else
+                        {
+                            <select @bind="SelectedDeviceIds[group.Id]">
+                                <option value="">Выберите устройство</option>
+                                @foreach (var device in availableDevices)
+                                {
+                                    <option value="@device.Id">@device.Name — @device.Address</option>
+                                }
+                            </select>
+                            <button class="primary-button" @onclick="() => AddBillboardAsync(group)" disabled="@IsBusy">+ Добавить</button>
+                        }
+                    </div>
+                </div>
+            </section>
+        }
+    }
+</div>
+
+@code {
+    private IReadOnlyList<Billboard.Application.Contracts.BillboardGroupDto> GroupItems { get; set; } = [];
+    private IReadOnlyList<Billboard.Application.Contracts.BillboardDto> Devices { get; set; } = [];
+    private IReadOnlyList<Billboard.Application.Contracts.AdminUserDto> Users { get; set; } = [];
+    private Dictionary<Guid, string> SelectedDeviceIds { get; } = [];
+    private string NewGroupName { get; set; } = string.Empty;
+    private string SelectedOwnerId { get; set; } = string.Empty;
+    private string? Message { get; set; }
+    private string? ErrorMessage { get; set; }
+    private bool IsLoading { get; set; } = true;
+    private bool IsBusy { get; set; }
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task CreateGroupAsync()
+    {
+        IsBusy = true;
+        try
+        {
+            Guid? ownerId = Guid.TryParse(SelectedOwnerId, out var owner) ? owner : null;
+            await Api.PostAsync<Billboard.Application.Contracts.BillboardGroupDto>(
+                "api/v1/admin/billboard-groups",
+                new Billboard.Application.Contracts.BillboardGroupUpsertRequest(NewGroupName.Trim(), ownerId));
+            NewGroupName = string.Empty;
+            Message = "Группа создана.";
+            await LoadAsync();
+        }
+        catch (BillboardApiException exception)
+        {
+            ErrorMessage = exception.Message;
+        }
+        catch (HttpRequestException)
+        {
+            ErrorMessage = "Не удалось подключиться к API.";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task AddBillboardAsync(Billboard.Application.Contracts.BillboardGroupDto group)
+    {
+        if (!SelectedDeviceIds.TryGetValue(group.Id, out var selected) || !Guid.TryParse(selected, out var deviceId))
+        {
+            ErrorMessage = "Выберите билборд для добавления.";
+            return;
+        }
+
+        await RunActionAsync(async () =>
+        {
+            await Api.PostAsync<Billboard.Application.Contracts.BillboardGroupDto>(
+                $"api/v1/admin/billboard-groups/{group.Id}/billboards",
+                new Billboard.Application.Contracts.BillboardGroupMembersRequest([deviceId]));
+        }, "Устройство добавлено в группу.");
+    }
+
+    private Task RemoveBillboardAsync(
+        Billboard.Application.Contracts.BillboardGroupDto group,
+        Billboard.Application.Contracts.BillboardDto device) =>
+        RunActionAsync(
+            async () => await Api.DeleteAsync($"api/v1/admin/billboard-groups/{group.Id}/billboards/{device.Id}"),
+            "Устройство удалено из группы.");
+
+    private Task DeleteGroupAsync(Billboard.Application.Contracts.BillboardGroupDto group) =>
+        RunActionAsync(
+            async () => await Api.DeleteAsync($"api/v1/admin/billboard-groups/{group.Id}"),
+            "Группа удалена.");
+
+    private async Task RunActionAsync(Func<Task> action, string successMessage)
+    {
+        IsBusy = true;
+        ErrorMessage = null;
+        Message = null;
+        try
+        {
+            await action();
+            Message = successMessage;
+            await LoadAsync();
+        }
+        catch (BillboardApiException exception)
+        {
+            ErrorMessage = exception.Message;
+        }
+        catch (HttpRequestException)
+        {
+            ErrorMessage = "Не удалось подключиться к API.";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            var groupsTask = Api.GetListAsync<Billboard.Application.Contracts.BillboardGroupDto>("api/v1/admin/billboard-groups");
+            var devicesTask = Api.GetListAsync<Billboard.Application.Contracts.BillboardDto>("api/v1/admin/billboards");
+            var usersTask = Api.GetListAsync<Billboard.Application.Contracts.AdminUserDto>("api/v1/admin/users?skip=0&take=100");
+            await Task.WhenAll(groupsTask, devicesTask, usersTask);
+            GroupItems = await groupsTask;
+            Devices = await devicesTask;
+            Users = await usersTask;
+            foreach (var group in GroupItems)
+                SelectedDeviceIds.TryAdd(group.Id, string.Empty);
+            ErrorMessage = null;
+        }
+        catch (BillboardApiException exception)
+        {
+            ErrorMessage = exception.Message;
+        }
+        catch (HttpRequestException)
+        {
+            ErrorMessage = "Не удалось подключиться к API.";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private string OwnerName(Guid? ownerId) =>
+        ownerId is null ? "Не назначен" : Users.FirstOrDefault(user => user.Id == ownerId)?.DisplayName ?? ownerId.ToString()!;
+}

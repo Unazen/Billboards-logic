@@ -1,0 +1,142 @@
+@page "/wallet"
+
+@inject BillboardApiClient Api
+
+<PageTitle>Баланс | Billboard</PageTitle>
+
+<div class="client-page">
+    <div class="client-page-heading">
+        <div>
+            <h1>Баланс</h1>
+            <p>Средства для оплаты тарифов и рекламных размещений</p>
+        </div>
+        <a class="client-count" href="/payments">История платежей →</a>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+    {
+        <div class="billing-message" role="alert">@ErrorMessage</div>
+    }
+    else if (WalletData is null)
+    {
+        <div class="client-panel client-empty-state">Загрузка баланса…</div>
+    }
+    else
+    {
+        <div class="wallet-grid">
+            <section class="client-panel wallet-balance-card">
+                <span class="wallet-label">ДОСТУПНЫЙ БАЛАНС</span>
+                <strong>@WalletData.Balance.ToString("N2", RussianCulture) @WalletData.Currency</strong>
+                <p>Зарезервировано: @WalletData.ReservedBalance.ToString("N2", RussianCulture) @WalletData.Currency</p>
+                <a href="/tariffs">Посмотреть тарифы →</a>
+            </section>
+
+            <section class="client-panel wallet-topup-card">
+                <h2>Пополнить баланс</h2>
+                <p>Пополнение выполняется API в учебном режиме, без реального платёжного провайдера.</p>
+                <form @onsubmit="TopUpAsync" @onsubmit:preventDefault>
+                    <label for="top-up-amount">Сумма, @WalletData.Currency</label>
+                    <input id="top-up-amount" type="number" min="0.01" max="100000" step="0.01" @bind="Amount" required disabled="@IsBusy" />
+                    <small>До 100 000 @WalletData.Currency</small>
+                    @if (!string.IsNullOrWhiteSpace(Message))
+                    {
+                        <div class="wallet-message @(Succeeded ? "success" : "error")" role="status">@Message</div>
+                    }
+                    <button class="billing-button" type="submit" disabled="@IsBusy">@(IsBusy ? "Обработка…" : "Пополнить баланс")</button>
+                </form>
+            </section>
+        </div>
+
+        <section class="client-panel wallet-recent">
+            <div class="client-panel-heading">
+                <div><h3>Последние операции</h3><p>Недавние зачисления и списания</p></div>
+                <a href="/payments">Все операции →</a>
+            </div>
+            <div class="client-responsive-table">
+                <table class="client-table">
+                    <thead><tr><th>Дата</th><th>Операция</th><th>Описание</th><th>Сумма</th><th>Баланс после</th></tr></thead>
+                    <tbody>
+                        @foreach (var transaction in RecentTransactions)
+                        {
+                            <tr @key="transaction.Id">
+                                <td>@transaction.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                                <td>@transaction.Type</td>
+                                <td>@transaction.Description</td>
+                                <td class="@(transaction.Amount >= 0 ? "amount-positive" : "amount-negative")">
+                                    @(transaction.Amount > 0 ? "+" : string.Empty)@transaction.Amount.ToString("N2", RussianCulture) @WalletData.Currency
+                                </td>
+                                <td>@transaction.BalanceAfter.ToString("N2", RussianCulture) @WalletData.Currency</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+</div>
+
+@code {
+    private static readonly System.Globalization.CultureInfo RussianCulture =
+        System.Globalization.CultureInfo.GetCultureInfo("ru-RU");
+
+    private decimal Amount { get; set; } = 1_000m;
+    private string? Message { get; set; }
+    private string? ErrorMessage { get; set; }
+    private bool Succeeded { get; set; }
+    private bool IsBusy { get; set; }
+    private Billboard.Application.Contracts.WalletDto? WalletData { get; set; }
+    private IReadOnlyList<Billboard.Application.Contracts.WalletTransactionDto> RecentTransactions { get; set; } = [];
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task TopUpAsync()
+    {
+        IsBusy = true;
+        Message = null;
+        ErrorMessage = null;
+        try
+        {
+            await Api.PostAsync<Billboard.Application.Contracts.WalletTransactionDto>(
+                "api/v1/billing/top-ups",
+                new Billboard.Application.Contracts.TopUpRequest(Amount, Guid.NewGuid().ToString("N")));
+            Succeeded = true;
+            Message = "Баланс успешно пополнен.";
+            Amount = 1_000m;
+            await LoadAsync();
+        }
+        catch (BillboardApiException exception)
+        {
+            Succeeded = false;
+            Message = exception.Message;
+        }
+        catch (HttpRequestException)
+        {
+            Succeeded = false;
+            Message = "Не удалось подключиться к API.";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            var walletTask = Api.GetAsync<Billboard.Application.Contracts.WalletDto>("api/v1/billing/wallet");
+            var transactionsTask = Api.GetListAsync<Billboard.Application.Contracts.WalletTransactionDto>("api/v1/billing/transactions?take=5");
+            await Task.WhenAll(walletTask, transactionsTask);
+            WalletData = await walletTask;
+            RecentTransactions = await transactionsTask;
+        }
+        catch (BillboardApiException exception)
+        {
+            ErrorMessage = exception.Message;
+        }
+        catch (HttpRequestException)
+        {
+            ErrorMessage = "Не удалось подключиться к API.";
+        }
+    }
+}

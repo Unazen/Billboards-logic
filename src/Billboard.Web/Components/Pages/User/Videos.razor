@@ -1,0 +1,211 @@
+@page "/videos"
+
+@using Microsoft.AspNetCore.Components.Forms
+
+@inject BillboardApiClient Api
+
+<PageTitle>Мои рекламные материалы | Billboard</PageTitle>
+
+<div class="videos-page">
+    <div class="videos-header">
+        <div>
+            <h1>Мои рекламные материалы</h1>
+            <p>Медиатека рекламных роликов, загруженных в систему</p>
+        </div>
+        <div class="videos-header-info">
+            <span class="storage-label">Материалов в библиотеке</span>
+            <span class="storage-value">@VideoItems.Count файлов</span>
+        </div>
+    </div>
+
+    <div class="video-stats">
+        <div class="video-stat-card"><div class="stat-icon purple">▣</div><div><span>Всего материалов</span><strong>@VideoItems.Count</strong></div></div>
+        <div class="video-stat-card"><div class="stat-icon blue">▶</div><div><span>Готовы к показу</span><strong>@VideoItems.Count(item => item.Status.Equals("Ready", StringComparison.OrdinalIgnoreCase))</strong></div></div>
+        <div class="video-stat-card"><div class="stat-icon green">↗</div><div><span>Обрабатываются</span><strong>@VideoItems.Count(item => !item.Status.Equals("Ready", StringComparison.OrdinalIgnoreCase))</strong></div></div>
+    </div>
+
+    <div class="upload-section">
+        <div class="section-heading">
+            <div><h2>Добавить рекламный материал</h2><p>Файл будет загружен в хранилище через API</p></div>
+        </div>
+        <label class="upload-zone">
+            <InputFile OnChange="UploadFilesAsync" multiple accept=".mp4,.webm,.mov,.mkv" class="upload-input" disabled="@IsUploading" />
+            <div class="upload-content">
+                <div class="upload-icon">↑</div>
+                <h3>@(IsUploading ? "Загрузка файла…" : "Выберите видеофайлы")</h3>
+                <p>Нажмите здесь, чтобы загрузить записи в медиатеку</p>
+                <span class="supported-formats">MP4, WEBM, MOV, MKV</span>
+            </div>
+        </label>
+        @if (!string.IsNullOrWhiteSpace(StatusMessage))
+        {
+            <div class="upload-message @(HasError ? "error" : string.Empty)" role="status">@StatusMessage</div>
+        }
+    </div>
+
+    <div class="library-section">
+        <div class="library-heading">
+            <div><h2>Моя медиатека</h2><p>Данные загружены из API</p></div>
+            <input class="video-search" type="search" placeholder="Поиск видео..." @bind="SearchText" />
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+        {
+            <div class="upload-message error" role="alert">@ErrorMessage</div>
+        }
+        else if (IsLoading)
+        {
+            <div class="empty-library"><h3>Загрузка медиатеки…</h3></div>
+        }
+        else if (FilteredVideos.Any())
+        {
+            <div class="video-table-wrapper">
+                <table class="video-table">
+                    <thead><tr><th>Название</th><th>Размер</th><th>Дата добавления</th><th>Статус</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var item in FilteredVideos)
+                        {
+                            <tr @key="item.Id">
+                                <td><div class="video-name"><div class="video-file-icon">▶</div><div><strong>@item.FileName</strong><span>@item.ContentType</span></div></div></td>
+                                <td>@FormatSize(item.SizeBytes)</td>
+                                <td>@item.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                                <td><span class="video-status">@StatusText(item.Status)</span>@if (!string.IsNullOrWhiteSpace(item.FailureReason)){<small>@item.FailureReason</small>}</td>
+                                <td><button class="delete-button" title="Удалить файл" @onclick="() => DeleteAsync(item)" disabled="@IsUploading">✕</button></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="empty-library">
+                <div class="empty-icon">▣</div>
+                <h3>@(VideoItems.Count == 0 ? "Медиатека пока пуста" : "Видео не найдены")</h3>
+                <p>@(VideoItems.Count == 0 ? "Загрузите рекламные ролики, чтобы они появились здесь." : "Попробуйте изменить поисковый запрос.")</p>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private string SearchText { get; set; } = string.Empty;
+    private string StatusMessage { get; set; } = string.Empty;
+    private string? ErrorMessage { get; set; }
+    private bool HasError { get; set; }
+    private bool IsLoading { get; set; } = true;
+    private bool IsUploading { get; set; }
+    private IReadOnlyList<Billboard.Application.Contracts.VideoDto> VideoItems { get; set; } = [];
+    private IEnumerable<Billboard.Application.Contracts.VideoDto> FilteredVideos =>
+        VideoItems.Where(item => item.FileName.Contains(SearchText, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task UploadFilesAsync(InputFileChangeEventArgs args)
+    {
+        IsUploading = true;
+        StatusMessage = string.Empty;
+        ErrorMessage = null;
+        HasError = false;
+        var uploaded = 0;
+        try
+        {
+            foreach (var file in args.GetMultipleFiles(20))
+            {
+                var extension = Path.GetExtension(file.Name).ToLowerInvariant();
+                if (extension is not (".mp4" or ".webm" or ".mov" or ".mkv"))
+                {
+                    HasError = true;
+                    StatusMessage += $"Формат файла {file.Name} не поддерживается. ";
+                    continue;
+                }
+
+                await using var stream = file.OpenReadStream(512L * 1024 * 1024);
+                await Api.UploadVideoAsync(
+                    file.Name,
+                    string.IsNullOrWhiteSpace(file.ContentType) ? "application/octet-stream" : file.ContentType,
+                    file.Size,
+                    stream);
+                uploaded++;
+            }
+
+            await LoadAsync();
+            if (uploaded > 0)
+                StatusMessage += $"Успешно загружено файлов: {uploaded}.";
+        }
+        catch (BillboardApiException exception)
+        {
+            HasError = true;
+            StatusMessage = exception.Message;
+        }
+        catch (HttpRequestException)
+        {
+            HasError = true;
+            StatusMessage = "Не удалось подключиться к API.";
+        }
+        catch (IOException exception)
+        {
+            HasError = true;
+            StatusMessage = $"Не удалось прочитать файл: {exception.Message}";
+        }
+        finally
+        {
+            IsUploading = false;
+        }
+    }
+
+    private async Task DeleteAsync(Billboard.Application.Contracts.VideoDto video)
+    {
+        try
+        {
+            await Api.DeleteAsync($"api/v1/videos/{video.Id}");
+            await LoadAsync();
+            StatusMessage = $"Файл «{video.FileName}» удалён.";
+            HasError = false;
+        }
+        catch (BillboardApiException exception)
+        {
+            HasError = true;
+            StatusMessage = exception.Message;
+        }
+        catch (HttpRequestException)
+        {
+            HasError = true;
+            StatusMessage = "Не удалось подключиться к API.";
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            VideoItems = await Api.GetListAsync<Billboard.Application.Contracts.VideoDto>("api/v1/videos?all=false");
+            ErrorMessage = null;
+        }
+        catch (BillboardApiException exception)
+        {
+            ErrorMessage = exception.Message;
+        }
+        catch (HttpRequestException)
+        {
+            ErrorMessage = "Не удалось подключиться к API.";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private static string FormatSize(long bytes) =>
+        bytes >= 1024L * 1024 * 1024
+            ? $"{bytes / (1024d * 1024 * 1024):F2} ГБ"
+            : $"{bytes / 1024d / 1024:F2} МБ";
+
+    private static string StatusText(string status) => status switch
+    {
+        "Ready" => "Готово",
+        "Processing" => "Обработка",
+        "Failed" => "Ошибка",
+        _ => status
+    };
+}

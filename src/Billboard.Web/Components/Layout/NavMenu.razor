@@ -1,30 +1,127 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">Billboard.Web</a>
+@implements IDisposable
+@inject NavigationManager Navigation
+@inject ApiSession Session
+@inject BrowserAuthStorage AuthStorage
+
+<div class="sidebar">
+    <div class="brand">
+        <div class="brand-icon">B</div>
+        <div class="brand-name">
+            <span>Billboard</span>
+            <small>Management System</small>
+        </div>
+    </div>
+
+    @if (!Session.IsAuthenticated)
+    {
+        <div class="menu-section">
+            <NavLink href="/login" class="menu-link">
+                <span class="menu-icon">⇥</span><span>Войти</span>
+            </NavLink>
+        </div>
+    }
+    else if (Session.IsAdministrator)
+    {
+        <div class="menu-section">
+            <span class="menu-label">АДМИНИСТРАТОР</span>
+            <NavLink href="/admin" Match="NavLinkMatch.All" class="menu-link">
+                <span class="menu-icon">▦</span><span>Панель мониторинга</span>
+            </NavLink>
+            <NavLink href="/admin/users" class="menu-link">
+                <span class="menu-icon">♙</span><span>Управление пользователями</span>
+            </NavLink>
+            <NavLink href="/admin/billboards" class="menu-link">
+                <span class="menu-icon">▣</span><span>Управление устройствами</span>
+            </NavLink>
+            <NavLink href="/admin/logs" class="menu-link">
+                <span class="menu-icon">☷</span><span>Системные логи</span>
+            </NavLink>
+            <NavLink href="/admin/monitoring" class="menu-link">
+                <span class="menu-icon">◉</span><span>Мониторинг билбордов</span>
+            </NavLink>
+            <NavLink href="/admin/statistics" class="menu-link">
+                <span class="menu-icon">▥</span><span>Общая статистика системы</span>
+            </NavLink>
+            <NavLink href="/admin/streams" class="menu-link">
+                <span class="menu-icon">▷</span><span>Просмотр трансляций</span>
+            </NavLink>
+        </div>
+    }
+    else
+    {
+        <div class="menu-section">
+            <span class="menu-label">ПОЛЬЗОВАТЕЛЬ</span>
+            <NavLink href="/" Match="NavLinkMatch.All" class="menu-link">
+                <span class="menu-icon">▦</span><span>Главная страница кабинета</span>
+            </NavLink>
+            <NavLink href="/my-billboards" class="menu-link">
+                <span class="menu-icon">▣</span><span>Мои билборды</span>
+            </NavLink>
+            <NavLink href="/my-groups" class="menu-link">
+                <span class="menu-icon">▤</span><span>Мои группы устройств</span>
+            </NavLink>
+            <NavLink href="/videos" class="menu-link">
+                <span class="menu-icon">▶</span><span>Мои рекламные материалы</span>
+            </NavLink>
+            <NavLink href="/schedules" class="menu-link">
+                <span class="menu-icon">◷</span><span>Мои расписания</span>
+            </NavLink>
+            <NavLink href="/statistics" class="menu-link">
+                <span class="menu-icon">▥</span><span>Статистика показов</span>
+            </NavLink>
+            <NavLink href="/tariffs" class="menu-link">
+                <span class="menu-icon">◇</span><span>Тарифы</span>
+            </NavLink>
+            <NavLink href="/wallet" class="menu-link">
+                <span class="menu-icon">₽</span><span>Баланс</span>
+            </NavLink>
+            <NavLink href="/payments" class="menu-link">
+                <span class="menu-icon">⇄</span><span>Платежи</span>
+            </NavLink>
+            <NavLink href="/streams" class="menu-link">
+                <span class="menu-icon">▷</span><span>Просмотр трансляций</span>
+            </NavLink>
+        </div>
+    }
+
+    <div class="sidebar-footer">
+        @if (Session.IsAuthenticated)
+        {
+            <div class="user-avatar">@(Session.IsAdministrator ? "A" : Session.CurrentName[..1])</div>
+            <div class="user-info">
+                <strong>@Session.CurrentName</strong>
+                <small>@(Session.IsAdministrator ? "Администратор" : Session.CurrentEmail)</small>
+            </div>
+            <button type="button" class="account-switch-link" title="Сменить пользователя" @onclick="SignOutAsync">
+                <span aria-hidden="true">⇄</span><span>Сменить пользователя</span>
+            </button>
+        }
     </div>
 </div>
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+@code {
+    protected override void OnInitialized()
+    {
+        Navigation.LocationChanged += OnLocationChanged;
+        Session.Changed += OnSessionChanged;
+    }
 
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs args) =>
+        _ = InvokeAsync(StateHasChanged);
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
-            </NavLink>
-        </div>
+    private void OnSessionChanged() =>
+        _ = InvokeAsync(StateHasChanged);
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
-            </NavLink>
-        </div>
-    </nav>
-</div>
+    private async Task SignOutAsync()
+    {
+        await AuthStorage.ClearTokenAsync();
+        Session.Clear();
+        Navigation.NavigateTo("/login");
+    }
 
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
+        Session.Changed -= OnSessionChanged;
+    }
+}

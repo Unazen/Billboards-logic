@@ -1,0 +1,99 @@
+@implements IDisposable
+@inject ApiSession Session
+@inject BillboardApiClient Api
+@inject NavigationManager Navigation
+
+@if (IsAdminArea && Session.IsAdministrator)
+{
+    <footer class="status-bar">
+        <div class="status-connection">
+            <span class="status-dot @(HasError ? "offline" : string.Empty)"></span>
+            @(HasError ? "API недоступен" : "Подключение активно")
+        </div>
+
+        <div class="status-metrics">
+            @if (HasError)
+            {
+                <span>@ErrorMessage</span>
+            }
+            else
+            {
+                <span>Пользователей: <strong>@CountLabel(Users.Count, 100)</strong></span>
+                <span>Устройств: <strong>@Devices.Count</strong></span>
+                <span>Файлов: <strong>@Videos.Count</strong></span>
+            }
+        </div>
+    </footer>
+}
+
+@code {
+    private IReadOnlyList<Billboard.Application.Contracts.AdminUserDto> Users { get; set; } = [];
+    private IReadOnlyList<Billboard.Application.Contracts.AdminDeviceDto> Devices { get; set; } = [];
+    private IReadOnlyList<Billboard.Application.Contracts.VideoDto> Videos { get; set; } = [];
+    private string? ErrorMessage { get; set; }
+    private bool HasError { get; set; }
+
+    protected override void OnInitialized()
+    {
+        Navigation.LocationChanged += OnLocationChanged;
+        Session.Changed += OnSessionChanged;
+        if (IsAdminArea && Session.IsAdministrator)
+            _ = LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            var usersTask = Api.GetListAsync<Billboard.Application.Contracts.AdminUserDto>("api/v1/admin/users?skip=0&take=100");
+            var devicesTask = Api.GetListAsync<Billboard.Application.Contracts.AdminDeviceDto>("api/v1/admin/devices");
+            var videosTask = Api.GetListAsync<Billboard.Application.Contracts.VideoDto>("api/v1/videos?all=true");
+            await Task.WhenAll(usersTask, devicesTask, videosTask);
+            Users = await usersTask;
+            Devices = await devicesTask;
+            Videos = await videosTask;
+            HasError = false;
+            ErrorMessage = null;
+        }
+        catch (BillboardApiException exception)
+        {
+            HasError = true;
+            ErrorMessage = exception.Message;
+        }
+        catch (HttpRequestException)
+        {
+            HasError = true;
+            ErrorMessage = "Не удалось получить сводные данные.";
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs args)
+    {
+        if (IsAdminArea && Session.IsAdministrator)
+            _ = LoadAsync();
+        else
+            _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void OnSessionChanged()
+    {
+        if (IsAdminArea && Session.IsAdministrator)
+            _ = LoadAsync();
+        else
+            _ = InvokeAsync(StateHasChanged);
+    }
+
+    private bool IsAdminArea =>
+        new Uri(Navigation.Uri).AbsolutePath.StartsWith("/admin", StringComparison.OrdinalIgnoreCase);
+
+    private static string CountLabel(int count, int limit) =>
+        count >= limit ? $"{limit}+" : count.ToString();
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
+        Session.Changed -= OnSessionChanged;
+    }
+}
