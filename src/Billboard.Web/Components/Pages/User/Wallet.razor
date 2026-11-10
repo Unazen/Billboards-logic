@@ -1,0 +1,91 @@
+@page "/wallet"
+
+@inject BillingDemoStore Billing
+@inject DemoUserSession Session
+
+<PageTitle>Баланс | Billboard</PageTitle>
+
+<div class="client-page">
+    <div class="client-page-heading">
+        <div>
+            <h1>Баланс</h1>
+            <p>Средства для оплаты тарифов и рекламных размещений</p>
+        </div>
+        <a class="client-count" href="/payments">История платежей →</a>
+    </div>
+
+    <div class="client-demo-note">
+        <span aria-hidden="true">ⓘ</span>
+        Демо-режим: пополнение изменяет только тестовый баланс и не выполняет реальный платёж.
+    </div>
+
+    <div class="wallet-grid">
+        <section class="client-panel wallet-balance-card">
+            <span class="wallet-label">ДОСТУПНЫЙ БАЛАНС</span>
+            <strong>@Balance.ToString("N2", RussianCulture) ₽</strong>
+            <p>Текущий тариф: @Billing.GetCurrentTariff(AccountKey).Name</p>
+            <a href="/tariffs">Посмотреть тарифы →</a>
+        </section>
+
+        <section class="client-panel wallet-topup-card">
+            <h2>Пополнить баланс</h2>
+            <p>В тестовом режиме сумма зачисляется сразу и отображается в истории платежей.</p>
+            <form @onsubmit="TopUp" @onsubmit:preventDefault>
+                <label for="top-up-amount">Сумма, ₽</label>
+                <input id="top-up-amount" type="number" min="100" max="100000" step="100" @bind="Amount" required />
+                <small>От 100 до 100 000 ₽</small>
+                @if (!string.IsNullOrWhiteSpace(Message))
+                {
+                    <div class="wallet-message @(Succeeded ? "success" : "error")" role="status">@Message</div>
+                }
+                <button class="billing-button" type="submit">Пополнить (демо)</button>
+            </form>
+        </section>
+    </div>
+
+    <section class="client-panel wallet-recent">
+        <div class="client-panel-heading">
+            <div><h3>Последние операции</h3><p>Недавние зачисления и списания</p></div>
+            <a href="/payments">Все операции →</a>
+        </div>
+        <div class="client-responsive-table">
+            <table class="client-table">
+                <thead><tr><th>Дата</th><th>Операция</th><th>Описание</th><th>Сумма</th><th>Баланс</th></tr></thead>
+                <tbody>
+                    @foreach (var payment in RecentPayments)
+                    {
+                        <tr @key="payment.Id">
+                            <td>@payment.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                            <td>@payment.Type</td>
+                            <td>@payment.Description</td>
+                            <td class="@(payment.Amount >= 0 ? "amount-positive" : "amount-negative")">
+                                @(payment.Amount > 0 ? "+" : string.Empty)@payment.Amount.ToString("N2", RussianCulture) ₽
+                            </td>
+                            <td>@payment.BalanceAfter.ToString("N2", RussianCulture) ₽</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+@code {
+    private static readonly System.Globalization.CultureInfo RussianCulture =
+        System.Globalization.CultureInfo.GetCultureInfo("ru-RU");
+
+    private decimal Amount { get; set; } = 1_000m;
+    private string? Message { get; set; }
+    private bool Succeeded { get; set; }
+    private string AccountKey => Session.IsAdministrator ? "admin" : $"user-{Session.CurrentUserId}";
+    private decimal Balance => Billing.GetBalance(AccountKey);
+    private IReadOnlyList<DemoPayment> RecentPayments => Billing.GetPayments(AccountKey).Take(5).ToList();
+
+    private void TopUp()
+    {
+        Succeeded = Billing.TryTopUp(AccountKey, Amount, out var message);
+        Message = message;
+        if (Succeeded)
+            Amount = 1_000m;
+    }
+}
