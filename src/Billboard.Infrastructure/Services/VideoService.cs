@@ -7,6 +7,7 @@ using Billboard.Domain.Enums;
 using Billboard.Domain.Interfaces;
 using Billboard.Infrastructure.Media;
 using Billboard.Infrastructure.Persistence;
+using Billboard.Infrastructure.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -21,6 +22,8 @@ public sealed class VideoService(
     ITariffService tariffs,
     IUrlFetcher fetcher,
     IOptions<MediaOptions> mediaOptions,
+    IOptions<StorageOptions> storageOptions,
+    VideoStreamTokens streamTokens,
     ILogger<VideoService> log) : IVideoService
 {
     /// <summary>Размещения в этих статусах «используют» видео: удалять его нельзя.</summary>
@@ -31,6 +34,10 @@ public sealed class VideoService(
     };
 
     private readonly MediaOptions _media = mediaOptions.Value;
+    private readonly StorageOptions _storage = storageOptions.Value;
+
+    private bool UsesLocalStorage =>
+        _storage.Provider.Equals("Local", StringComparison.OrdinalIgnoreCase);
 
     // ---------- загрузка ----------
 
@@ -246,7 +253,10 @@ public sealed class VideoService(
         var asset = await FindAsync(userId, isAdmin, videoId, ct);
         if (asset.Status != VideoStatus.Ready)
             throw AppException.Conflict("VIDEO_NOT_READY", "Видео ещё не готово.");
-        return await storage.GetDownloadUrlAsync(asset.StorageKey, TimeSpan.FromMinutes(_media.DownloadUrlTtlMinutes), ct);
+        var ttl = TimeSpan.FromMinutes(_media.DownloadUrlTtlMinutes);
+        return UsesLocalStorage
+            ? BuildStreamUrl(asset.Id, ttl)
+            : await storage.GetDownloadUrlAsync(asset.StorageKey, ttl, ct);
     }
 
     public async Task<VideoSourceDto> GetPlaybackSourceAsync(Guid videoId, CancellationToken ct = default)
@@ -258,9 +268,40 @@ public sealed class VideoService(
 
         var ttl = TimeSpan.FromMinutes(_media.DownloadUrlTtlMinutes);
         var variant = asset.Variants.FirstOrDefault(v => v.Status == VideoStatus.Ready);
-        return variant is not null
-            ? new VideoSourceDto(asset.Id, await storage.GetDownloadUrlAsync(variant.StorageKey, ttl, ct), variant.SizeBytes, variant.Checksum)
-            : new VideoSourceDto(asset.Id, await storage.GetDownloadUrlAsync(asset.StorageKey, ttl, ct), asset.SizeBytes, asset.Checksum);
+        var key = variant?.StorageKey ?? asset.StorageKey;
+        var size = variant?.SizeBytes ?? asset.SizeBytes;
+        var checksum = variant?.Checksum ?? asset.Checksum;
+
+        // Для локального хранилища presigned URL не существует: отдаём подписанную ссылку на API.
+        var url = UsesLocalStorage
+            ? BuildStreamUrl(asset.Id, ttl)
+            : await storage.GetDownloadUrlAsync(key, ttl, ct);
+
+        return new VideoSourceDto(asset.Id, url, size, checksum);
+    }
+
+    public async Task<VideoStreamDto> OpenStreamAsync(Guid videoId, CancellationToken ct = default)
+    {
+        var asset = await db.VideoAssets.AsNoTracking().Include(v => v.Variants)
+                        .FirstOrDefaultAsync(v => v.Id == videoId, ct)
+                    ?? throw AppException.NotFound("Видео");
+        if (asset.Status != VideoStatus.Ready)
+            throw AppException.Conflict("VIDEO_NOT_READY", "Видео ещё не готово.");
+
+        var variant = asset.Variants.FirstOrDefault(v => v.Status == VideoStatus.Ready);
+        var key = variant?.StorageKey ?? asset.StorageKey;
+        var stream = await storage.OpenReadAsync(key, ct);
+        var contentType = string.IsNullOrWhiteSpace(asset.ContentType) ? "video/mp4" : asset.ContentType;
+        return new VideoStreamDto(stream, contentType, asset.OriginalFileName);
+    }
+
+    private Uri BuildStreamUrl(Guid videoId, TimeSpan ttl)
+    {
+        var baseUrl = string.IsNullOrWhiteSpace(_media.PublicBaseUrl)
+            ? "http://localhost:8080"
+            : _media.PublicBaseUrl.TrimEnd('/');
+        var token = streamTokens.Create(videoId, DateTimeOffset.UtcNow.Add(ttl));
+        return new Uri($"{baseUrl}/api/v1/videos/{videoId}/stream?token={Uri.EscapeDataString(token)}");
     }
 
     // ---------- удаление ----------

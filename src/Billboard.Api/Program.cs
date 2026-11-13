@@ -12,8 +12,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddBillboardInfrastructure(builder.Configuration);
 
 // Ключи защиты данных (подпись bearer-токенов) переживают перезапуск контейнера, если задан путь.
+var dataProtection = builder.Services.AddDataProtection();
 if (builder.Configuration["DataProtection:KeysPath"] is { Length: > 0 } keysPath)
-    builder.Services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(keysPath));
+    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(keysPath));
 
 // ---------- Identity: пользователи и роли Admin / Client ----------
 builder.Services
@@ -70,9 +71,12 @@ var app = builder.Build();
 app.UseMiddleware<ErrorHandlingMiddleware>();
 
 // OpenAPI-документ нужен и на защите проекта: /openapi/v1.json
-app.MapOpenApi();
+// OpenAPI-документ нужен на защите проекта и для разработки.
+if (app.Environment.IsDevelopment())
+    app.MapOpenApi();
 
 app.UseAuthentication();
+app.UseMiddleware<ActiveUserMiddleware>();
 app.UseAuthorization();
 
 app.MapControllers();

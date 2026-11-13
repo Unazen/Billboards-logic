@@ -35,6 +35,7 @@ public static class DependencyInjection
         services.AddSingleton<IUrlFetcher, SafeUrlFetcher>();
         services.AddSingleton<IVideoProbe, FfprobeVideoProbe>();
         services.AddSingleton<IVideoTranscoder, FfmpegTranscoder>();
+        services.AddSingleton<VideoStreamTokens>();
         services.AddSingleton<IPaymentGateway, MockPaymentService>();
 
         services.AddScoped<WalletLedger>();

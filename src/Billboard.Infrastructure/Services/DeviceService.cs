@@ -32,6 +32,16 @@ public sealed class DeviceService(AppDbContext db, IVideoService videos, IOption
         var now = DateTimeOffset.UtcNow;
         var localNow = TimeZoneInfo.ConvertTime(now, TimeZones.Resolve(billboard.TimeZoneId));
 
+        // Отключённое устройство не должно получать новые ролики и продолжать показы.
+        if (billboard.Status == BillboardStatus.Disabled)
+        {
+            var used = await db.DeviceCachedVideos.AsNoTracking()
+                .Where(c => c.BillboardId == billboardId)
+                .SumAsync(c => (long?)c.SizeBytes, ct) ?? 0L;
+            return new DeviceManifestDto(billboard.Id, ComputeVersion(Array.Empty<AdPlacement>()), now,
+                billboard.CapacityBytes, used, []);
+        }
+
         var candidates = await db.AdPlacements.AsNoTracking()
             .Include(p => p.VideoAsset)
             .Where(p => p.BillboardId == billboardId && PlayingStatuses.Contains(p.Status))

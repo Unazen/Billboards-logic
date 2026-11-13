@@ -306,6 +306,171 @@ public class CampaignFlowTests
 
     // ---------- вспомогательные ----------
 
+    [Fact]
+    public async Task Local_storage_manifest_url_is_served_over_http_with_signed_token()
+    {
+        using var factory = new ApiFactory();
+        using var client = factory.CreateClient();
+
+        var clientToken = await RegisterAndLoginAsync(client, "stream@test.local");
+        var adminToken = await LoginAsync(client, ApiFactory.SeedAdminEmail, ApiFactory.SeedAdminPassword);
+        var (billboardId, deviceToken) = await CreateBillboardAsync(client, adminToken);
+        var videoId = await UploadVideoAsync(client, clientToken);
+        await TopUpAsync(client, clientToken, 20m, "stream-topup");
+        var placementId = await CreatePlacementAsync(client, clientToken, videoId, billboardId);
+        var published = await PostJsonAsync(client, clientToken, $"/api/v1/placements/{placementId}/publish", null);
+        Assert.Equal(HttpStatusCode.OK, published.StatusCode);
+
+        using var manifestRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/devices/{billboardId}/manifest");
+        manifestRequest.Headers.Add("X-Device-Token", deviceToken);
+        using var manifestResponse = await client.SendAsync(manifestRequest);
+        Assert.Equal(HttpStatusCode.OK, manifestResponse.StatusCode);
+
+        var manifest = await manifestResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var file = Assert.Single(manifest.GetProperty("files").EnumerateArray());
+        var url = file.GetProperty("downloadUrl").GetString()!;
+        Assert.StartsWith("http://", url);
+        Assert.Contains("/stream?token=", url);
+
+        using var download = await client.GetAsync(url);
+        Assert.Equal(HttpStatusCode.OK, download.StatusCode);
+        Assert.Equal(2048, (await download.Content.ReadAsByteArrayAsync()).Length);
+
+        using var badToken = await client.GetAsync($"/api/v1/videos/{videoId}/stream?token=bad");
+        Assert.Equal(HttpStatusCode.Unauthorized, badToken.StatusCode);
+    }
+
+    [Fact]
+    public async Task Disabled_billboard_stops_manifest_and_rejects_playback()
+    {
+        using var factory = new ApiFactory();
+        using var client = factory.CreateClient();
+
+        var clientToken = await RegisterAndLoginAsync(client, "disabled@test.local");
+        var adminToken = await LoginAsync(client, ApiFactory.SeedAdminEmail, ApiFactory.SeedAdminPassword);
+        var (billboardId, deviceToken) = await CreateBillboardAsync(client, adminToken);
+        var videoId = await UploadVideoAsync(client, clientToken);
+        await TopUpAsync(client, clientToken, 20m, "disabled-topup");
+        var placementId = await CreatePlacementAsync(client, clientToken, videoId, billboardId);
+        await PostJsonAsync(client, clientToken, $"/api/v1/placements/{placementId}/publish", null);
+
+        var disabled = await PostJsonAsync(client, adminToken, $"/api/v1/admin/billboards/{billboardId}/disable", null);
+        Assert.Equal(HttpStatusCode.OK, disabled.StatusCode);
+
+        using var manifestRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/devices/{billboardId}/manifest");
+        manifestRequest.Headers.Add("X-Device-Token", deviceToken);
+        using var manifestResponse = await client.SendAsync(manifestRequest);
+        Assert.Equal(HttpStatusCode.OK, manifestResponse.StatusCode);
+        var manifest = await manifestResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Empty(manifest.GetProperty("files").EnumerateArray());
+
+        using var playback = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/devices/{billboardId}/playback-events")
+        {
+            Content = JsonContent.Create(new
+            {
+                events = new[]
+                {
+                    new
+                    {
+                        idempotencyKey = "disabled-1",
+                        placementId,
+                        videoAssetId = videoId,
+                        startedAt = DateTimeOffset.UtcNow,
+                        durationSeconds = 15,
+                        result = "Completed"
+                    }
+                }
+            })
+        };
+        playback.Headers.Add("X-Device-Token", deviceToken);
+        using var playbackResponse = await client.SendAsync(playback);
+        Assert.Equal(HttpStatusCode.Conflict, playbackResponse.StatusCode);
+        var error = await playbackResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("BILLBOARD_DISABLED", error.GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task Admin_can_pause_and_resume_client_placement()
+    {
+        using var factory = new ApiFactory();
+        using var client = factory.CreateClient();
+
+        var clientToken = await RegisterAndLoginAsync(client, "paused@test.local");
+        var adminToken = await LoginAsync(client, ApiFactory.SeedAdminEmail, ApiFactory.SeedAdminPassword);
+        var (billboardId, _) = await CreateBillboardAsync(client, adminToken);
+        var videoId = await UploadVideoAsync(client, clientToken);
+        await TopUpAsync(client, clientToken, 20m, "pause-topup");
+        var placementId = await CreatePlacementAsync(client, clientToken, videoId, billboardId);
+        await PostJsonAsync(client, clientToken, $"/api/v1/placements/{placementId}/publish", null);
+
+        using var pause = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/placements/{placementId}/pause");
+        pause.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var paused = await client.SendAsync(pause);
+        Assert.Equal(HttpStatusCode.OK, paused.StatusCode);
+        Assert.Equal("Paused", (await paused.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("status").GetString());
+
+        using var resume = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/placements/{placementId}/resume");
+        resume.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var resumed = await client.SendAsync(resume);
+        Assert.Equal(HttpStatusCode.OK, resumed.StatusCode);
+        Assert.Equal("Scheduled", (await resumed.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("status").GetString());
+    }
+
+    [Fact]
+    public async Task Deactivated_user_loses_existing_bearer_token()
+    {
+        using var factory = new ApiFactory();
+        using var client = factory.CreateClient();
+
+        var clientToken = await RegisterAndLoginAsync(client, "blocked@test.local");
+        var adminToken = await LoginAsync(client, ApiFactory.SeedAdminEmail, ApiFactory.SeedAdminPassword);
+        var account = await GetJsonAsync(client, clientToken, "/api/v1/account/me");
+        var userId = account.GetProperty("id").GetGuid();
+
+        var patch = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/admin/users/{userId}/active")
+        {
+            Content = JsonContent.Create(new { isActive = false })
+        };
+        patch.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var patched = await client.SendAsync(patch);
+        Assert.Equal(HttpStatusCode.OK, patched.StatusCode);
+
+        using var me = new HttpRequestMessage(HttpMethod.Get, "/api/v1/account/me");
+        me.Headers.Authorization = new AuthenticationHeaderValue("Bearer", clientToken);
+        using var response = await client.SendAsync(me);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        var error = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("USER_INACTIVE", error.GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task Empty_group_returns_group_is_empty_code()
+    {
+        using var factory = new ApiFactory();
+        using var client = factory.CreateClient();
+        var clientToken = await RegisterAndLoginAsync(client, "empty-group@test.local");
+
+        var response = await PostJsonAsync(client, clientToken, "/api/v1/placement-groups/validate", new
+        {
+            billboardIds = Array.Empty<Guid>(),
+            template = new
+            {
+                videoAssetId = Guid.NewGuid(),
+                startDate = "2026-11-10",
+                endDate = "2026-11-10",
+                daysOfWeek = new[] { "Monday" },
+                startTime = "09:00:00",
+                endTime = "18:00:00",
+                minimumPlaysPerHour = 1,
+                videoDurationSeconds = 15
+            }
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var error = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("GROUP_IS_EMPTY", error.GetProperty("code").GetString());
+    }
+
     private static async Task<string> RegisterAndLoginAsync(HttpClient client, string email)
     {
         var register = await client.PostAsJsonAsync("/api/v1/account/register",

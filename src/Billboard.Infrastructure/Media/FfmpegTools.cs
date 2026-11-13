@@ -23,6 +23,13 @@ public class MediaOptions
 
     public int ImportTimeoutSeconds { get; set; } = 300;
     public int DownloadUrlTtlMinutes { get; set; } = 15;
+
+    /// <summary>
+    /// Внешний адрес API для ссылок на видео при локальном хранилище.
+    /// В Docker это http://localhost:8080 (или адрес, доступный устройству).
+    /// </summary>
+    public string? PublicBaseUrl { get; set; } = "http://localhost:8080";
+
     public string? TempPath { get; set; }
 }
 

@@ -61,6 +61,24 @@ public sealed class BillboardService(AppDbContext db) : IBillboardService
         var billboard = await db.Billboards.FirstOrDefaultAsync(b => b.Id == id, ct)
                         ?? throw AppException.NotFound("Билборд");
         billboard.Status = BillboardStatus.Disabled;
+
+        // Устройство больше не играет: останавливаем активные размещения, чтобы показы и списания прекратились.
+        var playing = new[]
+        {
+            PlacementStatus.Scheduled, PlacementStatus.Downloading,
+            PlacementStatus.Ready, PlacementStatus.Active
+        };
+        var placements = await db.AdPlacements
+            .Where(p => p.BillboardId == id && playing.Contains(p.Status))
+            .ToListAsync(ct);
+        foreach (var placement in placements)
+        {
+            placement.Status = PlacementStatus.Paused;
+            placement.PauseReason = "BillboardDisabled";
+            SystemLogWriter.Add(db, null, "PlacementPaused", nameof(AdPlacement), placement.Id, "WARN",
+                "BillboardDisabled");
+        }
+
         SystemLogWriter.Add(db, null, "BillboardDisabled", nameof(BillboardDevice), id);
         await db.SaveChangesAsync(ct);
         return Map(billboard);

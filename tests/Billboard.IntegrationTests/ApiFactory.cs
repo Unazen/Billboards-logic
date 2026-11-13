@@ -50,6 +50,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
             ["Storage:LocalPath"] = _storagePath,
             ["Media:RequireProbe"] = "false",
             ["Media:DownloadUrlTtlMinutes"] = "15",
+            ["Media:PublicBaseUrl"] = "http://localhost",
             ["Seed:AdminEmail"] = SeedAdminEmail,
             ["Seed:AdminPassword"] = SeedAdminPassword
         }));

@@ -63,6 +63,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<Guid
         b.Entity<BillboardGroup>(e =>
         {
             e.Property(x => x.Name).HasMaxLength(100);
+            e.HasIndex(x => x.Name).IsUnique();
             e.HasIndex(x => x.OwnerId);
         });
 

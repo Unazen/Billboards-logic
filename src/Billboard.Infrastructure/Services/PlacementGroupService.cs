@@ -53,8 +53,10 @@ public sealed class PlacementGroupService(
             await db.SaveChangesAsync(ct);
 
             // Резерв бюджета в той же транзакции: при нехватке денег откатится всё.
+            // billboardCount передаём размером группы: тариф даёт скидку за несколько билбордов.
+            var billboardCount = prepared.Candidates.Count;
             foreach (var candidate in prepared.Candidates)
-                await billing.ReserveAsync(userId, candidate.Id, 1, ct);
+                await billing.ReserveAsync(userId, candidate.Id, billboardCount, ct);
 
             await transaction.CommitAsync(ct);
         }

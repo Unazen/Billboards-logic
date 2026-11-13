@@ -153,17 +153,20 @@ public sealed class PlacementService(AppDbContext db, IScheduleValidator validat
         return new PlacementValidationResultDto(conflicts.Count == 0, quote, conflicts, alternatives);
     }
 
-    public async Task<IReadOnlyList<AlternativeWindowDto>> GetAlternativesAsync(Guid userId, Guid id, int max, CancellationToken ct = default)
+    public async Task<IReadOnlyList<AlternativeWindowDto>> GetAlternativesAsync(Guid userId, bool isAdmin, Guid id, int max, CancellationToken ct = default)
     {
         var placement = await LoadAsync(id, ct);
-        if (placement.OwnerId != userId) throw AppException.NotFound("Размещение");
+        EnsureVisible(placement, userId, isAdmin);
         return await validator.FindAlternativesAsync(placement, max, ct);
     }
 
-    public async Task<PublishPlacementResultDto> PublishAsync(Guid userId, Guid id, int billboardCount, CancellationToken ct = default)
+    public async Task<PublishPlacementResultDto> PublishAsync(Guid userId, bool isAdmin, Guid id, int billboardCount, CancellationToken ct = default)
     {
         var placement = await LoadAsync(id, ct);
-        if (placement.OwnerId != userId) throw AppException.NotFound("Размещение");
+        EnsureVisible(placement, userId, isAdmin);
+
+        // Бюджет всегда резервируется у владельца размещения, даже если действие выполняет админ.
+        var ownerId = placement.OwnerId;
 
         billboardCount = Math.Max(1, billboardCount);
 
@@ -171,7 +174,7 @@ public sealed class PlacementService(AppDbContext db, IScheduleValidator validat
         if (placement.Status is PlacementStatus.Scheduled or PlacementStatus.Active or PlacementStatus.Downloading
             or PlacementStatus.Ready)
         {
-            var quoteExisting = await billing.QuoteDraftAsync(userId, placement, billboardCount, ct);
+            var quoteExisting = await billing.QuoteDraftAsync(ownerId, placement, billboardCount, ct);
             var reservation = await db.BudgetReservations.AsNoTracking()
                 .FirstOrDefaultAsync(r => r.PlacementId == placement.Id, ct);
             return new PublishPlacementResultDto(placement.Id, placement.Status.ToString(),
@@ -191,12 +194,12 @@ public sealed class PlacementService(AppDbContext db, IScheduleValidator validat
                 "Невозможно опубликовать размещение: недостаточно рекламного времени.",
                 new { conflicts });
 
-        var quote = await billing.QuoteDraftAsync(userId, placement, billboardCount, ct);
+        var quote = await billing.QuoteDraftAsync(ownerId, placement, billboardCount, ct);
 
         ReservationDto reservationResult;
         try
         {
-            reservationResult = await billing.ReserveAsync(userId, placement.Id, billboardCount, ct);
+            reservationResult = await billing.ReserveAsync(ownerId, placement.Id, billboardCount, ct);
         }
         catch (AppException ex) when (ex.Code == "INSUFFICIENT_FUNDS")
         {
@@ -218,10 +221,10 @@ public sealed class PlacementService(AppDbContext db, IScheduleValidator validat
             reservationResult.ReservedAmount, quote);
     }
 
-    public async Task<PlacementDto> PauseAsync(Guid userId, Guid id, CancellationToken ct = default)
+    public async Task<PlacementDto> PauseAsync(Guid userId, bool isAdmin, Guid id, CancellationToken ct = default)
     {
         var placement = await LoadAsync(id, ct);
-        if (placement.OwnerId != userId) throw AppException.NotFound("Размещение");
+        EnsureVisible(placement, userId, isAdmin);
         if (!PausableStatuses.Contains(placement.Status))
             throw AppException.Conflict("INVALID_PLACEMENT_STATE", $"Приостановка невозможна в статусе {placement.Status}.");
 
@@ -232,10 +235,10 @@ public sealed class PlacementService(AppDbContext db, IScheduleValidator validat
         return (await MapManyAsync(new[] { placement }, ct))[0];
     }
 
-    public async Task<PlacementDto> ResumeAsync(Guid userId, Guid id, CancellationToken ct = default)
+    public async Task<PlacementDto> ResumeAsync(Guid userId, bool isAdmin, Guid id, CancellationToken ct = default)
     {
         var placement = await LoadAsync(id, ct);
-        if (placement.OwnerId != userId) throw AppException.NotFound("Размещение");
+        EnsureVisible(placement, userId, isAdmin);
         if (placement.Status != PlacementStatus.Paused)
             throw AppException.Conflict("INVALID_PLACEMENT_STATE", "Размещение не приостановлено.");
 
@@ -252,10 +255,10 @@ public sealed class PlacementService(AppDbContext db, IScheduleValidator validat
         return (await MapManyAsync(new[] { placement }, ct))[0];
     }
 
-    public async Task<PlacementDto> CancelAsync(Guid userId, Guid id, CancellationToken ct = default)
+    public async Task<PlacementDto> CancelAsync(Guid userId, bool isAdmin, Guid id, CancellationToken ct = default)
     {
         var placement = await LoadAsync(id, ct);
-        if (placement.OwnerId != userId) throw AppException.NotFound("Размещение");
+        EnsureVisible(placement, userId, isAdmin);
         if (!CancellableStatuses.Contains(placement.Status))
             throw AppException.Conflict("INVALID_PLACEMENT_STATE", $"Отмена невозможна в статусе {placement.Status}.");
 
@@ -270,6 +273,12 @@ public sealed class PlacementService(AppDbContext db, IScheduleValidator validat
     }
 
     // ---------- проверки ----------
+
+    private static void EnsureVisible(AdPlacement placement, Guid userId, bool isAdmin)
+    {
+        if (!isAdmin && placement.OwnerId != userId)
+            throw AppException.NotFound("Размещение");
+    }
 
     private static int ParseMask(PlacementUpsertRequest request)
     {
