@@ -1,0 +1,136 @@
+.wallet-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 1fr);
+    gap: 18px;
+}
+
+.wallet-balance-card,
+.wallet-topup-card {
+    padding: 24px;
+}
+
+.wallet-balance-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    min-height: 235px;
+    background: linear-gradient(135deg, #172033, #273c60);
+    color: #fff;
+}
+
+.wallet-label {
+    color: #a9bad5;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+.wallet-balance-card strong {
+    margin: 12px 0 4px;
+    font-size: 34px;
+}
+
+.wallet-balance-card p {
+    margin: 0 0 18px;
+    color: #c1ccdc;
+    font-size: 12px;
+}
+
+.wallet-balance-card a {
+    color: #a8c6ff;
+    font-size: 12px;
+    text-decoration: none;
+}
+
+.wallet-topup-card h2 {
+    margin: 0 0 8px;
+    color: #172033;
+    font-size: 18px;
+}
+
+.wallet-topup-card > p {
+    margin: 0 0 18px;
+    color: #8490a3;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.wallet-topup-card form {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+
+.wallet-topup-card label {
+    color: #536174;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.wallet-topup-card input {
+    width: 100%;
+    padding: 11px 12px;
+    border: 1px solid #dfe4ec;
+    border-radius: 8px;
+    color: #29364a;
+    font-size: 13px;
+}
+
+.wallet-topup-card input:focus {
+    border-color: #3978ed;
+    outline: 3px solid rgb(57 120 237 / 12%);
+}
+
+.wallet-topup-card small {
+    color: #929eb3;
+    font-size: 10px;
+}
+
+.wallet-message {
+    padding: 9px 10px;
+    border-radius: 7px;
+    font-size: 11px;
+}
+
+.wallet-message.success {
+    background: #e8f8ef;
+    color: #25885b;
+}
+
+.wallet-message.error {
+    background: #fff0ef;
+    color: #b74942;
+}
+
+.wallet-recent {
+    padding: 20px;
+}
+
+.wallet-recent .client-panel-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.wallet-recent .client-panel-heading a {
+    color: #3978ed;
+    font-size: 11px;
+    text-decoration: none;
+}
+
+.amount-positive {
+    color: #25885b !important;
+    font-weight: 600;
+}
+
+.amount-negative {
+    color: #b74942 !important;
+    font-weight: 600;
+}
+
+@media (max-width: 760px) {
+    .wallet-grid {
+        grid-template-columns: 1fr;
+    }
+}

@@ -1,0 +1,84 @@
+@implements IDisposable
+@inject NavigationManager Navigation
+@inject BillboardApiClient Api
+
+<header class="header">
+    <div>
+        <h1>@Title</h1>
+        <p>@Subtitle</p>
+    </div>
+
+    <div class="header-actions">
+        <div class="system-status">
+            <span class="status-dot @(ApiHealthy == true ? string.Empty : "offline")"></span>
+            @(ApiHealthy == true ? "API подключен" : ApiHealthy == false ? "API недоступен" : "Проверка API…")
+        </div>
+
+        <button class="notification-button" title="Уведомления">
+            ♧
+        </button>
+    </div>
+</header>
+
+@code {
+    private string CurrentPath => new Uri(Navigation.Uri).AbsolutePath.TrimEnd('/');
+
+    private string Title => CurrentPath switch
+    {
+        "" => "Главная страница кабинета",
+        "/admin" => "Панель мониторинга",
+        "/admin/users" => "Управление пользователями",
+        "/admin/billboards" => "Управление устройствами",
+        "/admin/groups" => "Группы устройств",
+        "/admin/logs" => "Системные логи",
+        "/admin/monitoring" => "Мониторинг билбордов",
+        "/admin/statistics" => "Общая статистика системы",
+        "/admin/streams" or "/streams" => "Просмотр трансляций",
+        "/my-billboards" => "Мои билборды",
+        "/my-groups" => "Мои группы устройств",
+        "/videos" => "Мои рекламные материалы",
+        "/schedules" => "Мои расписания",
+        "/statistics" => "Статистика показов",
+        "/tariffs" => "Тарифы",
+        "/wallet" => "Баланс",
+        "/payments" => "Платежи",
+        "/login" => "Вход / выбор пользователя",
+        "/schedules/create" => "Создание расписания",
+        _ when CurrentPath.StartsWith("/schedules/edit/", StringComparison.OrdinalIgnoreCase) => "Редактирование расписания",
+        _ => "Кабинет пользователя"
+    };
+
+    private string Subtitle => CurrentPath.StartsWith("/admin", StringComparison.OrdinalIgnoreCase)
+        ? "Управление и состояние системы Billboard"
+        : CurrentPath == "/login"
+            ? "Войдите с учётной записью из системы"
+        : "Управление вашими устройствами и рекламными размещениями";
+
+    private bool? ApiHealthy { get; set; }
+
+    protected override void OnInitialized() =>
+        Navigation.LocationChanged += OnLocationChanged;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await Api.CheckHealthAsync();
+            ApiHealthy = true;
+        }
+        catch (BillboardApiException)
+        {
+            ApiHealthy = false;
+        }
+        catch (HttpRequestException)
+        {
+            ApiHealthy = false;
+        }
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs args) =>
+        _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() =>
+        Navigation.LocationChanged -= OnLocationChanged;
+}

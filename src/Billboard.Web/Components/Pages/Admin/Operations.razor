@@ -1,0 +1,134 @@
+@page "/admin/monitoring"
+@page "/admin/statistics"
+
+@inject BillboardApiClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>@Title | Billboard</PageTitle>
+
+<div class="client-page admin-operations">
+    <div class="client-page-heading">
+        <div><h1>@Title</h1><p>@Description</p></div>
+        <span class="client-count">Данные API</span>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+    {
+        <div class="billing-message" role="alert">@ErrorMessage</div>
+    }
+    else if (IsLoading)
+    {
+        <div class="client-panel client-empty-state">Загрузка данных…</div>
+    }
+    else if (IsMonitoring)
+    {
+        <section class="client-panel">
+            <div class="client-responsive-table">
+                <table class="client-table">
+                    <thead><tr><th>Устройство</th><th>Состояние</th><th>Последнее соединение</th><th>Версия симулятора</th><th>Кэш</th></tr></thead>
+                    <tbody>
+                        @foreach (var device in Devices)
+                        {
+                            <tr @key="device.Id">
+                                <td><strong>@device.Name</strong><small>@device.Id</small></td>
+                                <td><span class="client-status @(IsOnline(device.Status) ? "online" : "offline")"><i></i>@device.Status</span></td>
+                                <td>@(device.LastSeenAt?.ToLocalTime().ToString("dd.MM.yyyy HH:mm") ?? "Нет данных")</td>
+                                <td>@(device.SimulatorVersion ?? "—")</td>
+                                <td>@FormatBytes(device.CacheUsedBytes) / @FormatBytes(device.CapacityBytes)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+    else
+    {
+        <div class="client-stat-grid client-stat-grid-three">
+            <div class="client-stat-card"><span class="client-stat-icon blue">♙</span><span class="client-stat-label">Пользователи</span><strong>@UserCountLabel</strong><small>Не больше 100 записей загружено</small></div>
+            <div class="client-stat-card"><span class="client-stat-icon violet">▣</span><span class="client-stat-label">Устройства</span><strong>@Devices.Count</strong><small>@Devices.Count(device => IsOnline(device.Status)) в сети</small></div>
+            <div class="client-stat-card"><span class="client-stat-icon green">▷</span><span class="client-stat-label">Показы</span><strong>@Usage.Sum(item => item.Plays).ToString("N0")</strong><small>Подтверждённые события</small></div>
+            <div class="client-stat-card"><span class="client-stat-icon orange">₽</span><span class="client-stat-label">Расходы размещений</span><strong>@Usage.Sum(item => item.Spent).ToString("N2") ₽</strong><small>Всего по системе</small></div>
+            <div class="client-stat-card"><span class="client-stat-icon green">↗</span><span class="client-stat-label">Доход владельцев</span><strong>@(Earnings?.Total.ToString("N2") ?? "0,00") ₽</strong><small>@(Earnings?.Count ?? 0) начислений</small></div>
+            <div class="client-stat-card"><span class="client-stat-icon blue">▤</span><span class="client-stat-label">Группы устройств</span><strong>@Groups.Count</strong><small>Группы системы</small></div>
+        </div>
+
+        <section class="client-panel">
+            <div class="client-panel-heading"><div><h3>Использование размещений</h3><p>Показы, расходы и резерв по билбордам</p></div></div>
+            <div class="client-responsive-table">
+                <table class="client-table">
+                    <thead><tr><th>Размещение</th><th>Билборд</th><th>Показы</th><th>Расходы</th><th>Резерв</th></tr></thead>
+                    <tbody>
+                        @foreach (var item in Usage)
+                        {
+                            <tr @key="item.PlacementId"><td>@item.PlacementId</td><td>@item.BillboardId</td><td>@item.Plays</td><td>@item.Spent.ToString("N2") ₽</td><td>@item.Reserved.ToString("N2") ₽</td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+</div>
+
+@code {
+    private bool IsMonitoring => CurrentPath == "/admin/monitoring";
+    private string CurrentPath => new Uri(Navigation.Uri).AbsolutePath.TrimEnd('/');
+    private string Title => IsMonitoring ? "Мониторинг билбордов" : "Общая статистика системы";
+    private string Description => IsMonitoring
+        ? "Текущее состояние устройств, соединения и кэша"
+        : "Сводная информация по пользователям, устройствам и размещениям";
+    private IReadOnlyList<Billboard.Application.Contracts.AdminDeviceDto> Devices { get; set; } = [];
+    private IReadOnlyList<Billboard.Application.Contracts.AdminUserDto> Users { get; set; } = [];
+    private IReadOnlyList<Billboard.Application.Contracts.BillboardGroupDto> Groups { get; set; } = [];
+    private IReadOnlyList<Billboard.Application.Contracts.PlacementUsageDto> Usage { get; set; } = [];
+    private Billboard.Application.Contracts.EarningsSummaryDto? Earnings { get; set; }
+    private string? ErrorMessage { get; set; }
+    private bool IsLoading { get; set; } = true;
+    private string UserCountLabel => Users.Count >= 100 ? "100+" : Users.Count.ToString();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            if (IsMonitoring)
+            {
+                Devices = await Api.GetListAsync<Billboard.Application.Contracts.AdminDeviceDto>("api/v1/admin/devices");
+            }
+            else
+            {
+                var usersTask = Api.GetListAsync<Billboard.Application.Contracts.AdminUserDto>("api/v1/admin/users?skip=0&take=100");
+                var devicesTask = Api.GetListAsync<Billboard.Application.Contracts.AdminDeviceDto>("api/v1/admin/devices");
+                var groupsTask = Api.GetListAsync<Billboard.Application.Contracts.BillboardGroupDto>("api/v1/admin/billboard-groups");
+                var usageTask = Api.GetListAsync<Billboard.Application.Contracts.PlacementUsageDto>("api/v1/billing/usage?all=true");
+                var earningsTask = Api.GetAsync<Billboard.Application.Contracts.EarningsSummaryDto>("api/v1/billing/earnings?take=100");
+                await Task.WhenAll(usersTask, devicesTask, groupsTask, usageTask, earningsTask);
+                Users = await usersTask;
+                Devices = await devicesTask;
+                Groups = await groupsTask;
+                Usage = await usageTask;
+                Earnings = await earningsTask;
+            }
+        }
+        catch (BillboardApiException exception)
+        {
+            ErrorMessage = exception.Message;
+        }
+        catch (HttpRequestException)
+        {
+            ErrorMessage = "Не удалось подключиться к API.";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private static bool IsOnline(string status) =>
+        status.Equals("Online", StringComparison.OrdinalIgnoreCase) ||
+        status.Equals("В сети", StringComparison.OrdinalIgnoreCase);
+
+    private static string FormatBytes(long bytes) =>
+        bytes >= 1024L * 1024 * 1024
+            ? $"{bytes / (1024d * 1024 * 1024):N1} ГБ"
+            : $"{bytes / 1024d / 1024:N0} МБ";
+}

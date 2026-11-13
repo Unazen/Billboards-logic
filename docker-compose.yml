@@ -1,7 +1,8 @@
 # Запуск: cp .env.example .env && docker compose up --build
 # API:     http://localhost:8080   (OpenAPI — только в Development)
-# MinIO:   http://localhost:9001   (консоль)
-# Web и симуляторы добавляют участники 1 и 2 в свои ветки.
+# Web:     http://localhost:8081
+# Файлы видео хранятся в Docker volume; MinIO не требуется для локального запуска.
+# Симуляторы добавляет участник 2.
 services:
   postgres:
     image: postgres:17
@@ -18,43 +19,20 @@ services:
       timeout: 5s
       retries: 10
 
-  minio:
-    image: minio/minio:latest
-    restart: unless-stopped
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:?задайте MINIO_ACCESS_KEY в .env}
-      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?задайте MINIO_SECRET_KEY в .env}
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - miniodata:/data
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   api:
     build:
       context: .
       dockerfile: src/Billboard.Api/Dockerfile
+      network: host
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
-      minio:
-        condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
       ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=${POSTGRES_DB:-billboard};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
-      Storage__Provider: Minio
-      Storage__Endpoint: minio:9000
-      Storage__AccessKey: ${MINIO_ACCESS_KEY}
-      Storage__SecretKey: ${MINIO_SECRET_KEY}
-      Storage__Bucket: billboard-videos
-      Storage__UseSsl: "false"
+      Storage__Provider: Local
+      Storage__LocalPath: /data/videos
       Seed__AdminEmail: ${SEED_ADMIN_EMAIL:-}
       Seed__AdminPassword: ${SEED_ADMIN_PASSWORD:-}
       DataProtection__KeysPath: /keys
@@ -62,8 +40,27 @@ services:
       - "8080:8080"
     volumes:
       - dpkeys:/keys
+      - videodata:/data/videos
+
+  web:
+    build:
+      context: .
+      dockerfile: src/Billboard.Web/Dockerfile
+      network: host
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      BillboardApi__BaseUrl: http://api:8080/
+      DataProtection__KeysPath: /keys
+    ports:
+      - "8081:8080"
+    volumes:
+      - webkeys:/keys
 
 volumes:
   pgdata:
-  miniodata:
+  videodata:
   dpkeys:
+  webkeys:

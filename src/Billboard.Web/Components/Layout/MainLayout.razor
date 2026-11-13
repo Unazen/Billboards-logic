@@ -1,23 +1,90 @@
 ﻿@inherits LayoutComponentBase
+@implements IDisposable
+@inject ApiSession Session
+@inject BrowserAuthStorage AuthStorage
+@inject BillboardApiClient Api
+@inject NavigationManager Navigation
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
+<div class="app-layout">
+    <NavMenu />
+
+    <div class="main-area">
+        <Header />
+
+        <main class="page-content">
+            @if (!Session.IsAuthenticated && !IsLoginPath)
+            {
+                <section class="access-required">
+                    <h2>Необходимо войти в систему</h2>
+                    <p>@(SessionError ?? "Для доступа к страницам кабинета выполните вход через API.")</p>
+                    <a href="/login" class="access-required-link">Открыть вход →</a>
+                </section>
+            }
+            else if (IsAdminPath && !Session.IsAdministrator)
+            {
+                <section class="access-required">
+                    <h2>Доступ администратора</h2>
+                    <p>Для просмотра административных разделов войдите с учётной записью администратора.</p>
+                    <a href="/login" class="access-required-link">Открыть вход →</a>
+                </section>
+            }
+            else
+            {
+                @Body
+            }
+        </main>
+
+        <StatusBar />
     </div>
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
+    @code {
+        private string? SessionError { get; set; }
 
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
-</div>
+        protected override void OnInitialized() =>
+            Session.Changed += OnSessionChanged;
 
-<div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
-    <span class="dismiss">🗙</span>
+        protected override async Task OnAfterRenderAsync(bool firstRender)
+        {
+            if (!firstRender || Session.IsAuthenticated)
+                return;
+
+            try
+            {
+                var token = await AuthStorage.GetTokenAsync();
+                if (string.IsNullOrWhiteSpace(token))
+                    return;
+
+                var account = await Api.RestoreSessionAsync(token);
+                if (IsLoginPath)
+                    Navigation.NavigateTo(account.Roles.Contains("Admin", StringComparer.OrdinalIgnoreCase) ? "/admin" : "/");
+                else
+                    await InvokeAsync(StateHasChanged);
+            }
+            catch (BillboardApiException exception)
+            {
+                await AuthStorage.ClearTokenAsync();
+                SessionError = exception.StatusCode == System.Net.HttpStatusCode.Unauthorized
+                    ? "Сессия истекла. Войдите снова."
+                    : exception.Message;
+                await InvokeAsync(StateHasChanged);
+            }
+            catch (HttpRequestException)
+            {
+                SessionError = "Не удалось восстановить сессию: API недоступен.";
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+
+        private void OnSessionChanged() =>
+            _ = InvokeAsync(StateHasChanged);
+
+        private bool IsAdminPath =>
+            new Uri(Navigation.Uri).AbsolutePath.StartsWith("/admin", StringComparison.OrdinalIgnoreCase);
+
+        private bool IsLoginPath =>
+            new Uri(Navigation.Uri).AbsolutePath.Equals("/login", StringComparison.OrdinalIgnoreCase);
+
+        public void Dispose() =>
+            Session.Changed -= OnSessionChanged;
+    }
 </div>

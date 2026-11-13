@@ -1,0 +1,76 @@
+@page "/login"
+
+@inject ApiSession Session
+@inject BrowserAuthStorage AuthStorage
+@inject BillboardApiClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>Вход в систему | Billboard</PageTitle>
+
+<div class="login-page">
+    <section class="login-card">
+        <div class="login-brand-mark">B</div>
+        <span class="login-eyebrow">ВХОД В СИСТЕМУ</span>
+        <h1>Вход в кабинет</h1>
+        <p class="login-description">Используйте учётную запись, созданную в системе Billboard.</p>
+
+        <form @onsubmit="SignInAsync" @onsubmit:preventDefault>
+            <label for="email">Электронная почта</label>
+            <input id="email" type="email" autocomplete="username" @bind="Email" required disabled="@IsBusy" />
+
+            <label for="password">Пароль</label>
+            <input id="password" type="password" autocomplete="current-password" @bind="Password" required disabled="@IsBusy" />
+
+            @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+            {
+                <p class="login-error" role="alert">@ErrorMessage</p>
+            }
+
+            <button type="submit" class="login-submit" disabled="@IsBusy">
+                @(IsBusy ? "Выполняется вход…" : "Войти")
+            </button>
+        </form>
+
+        <div class="login-disclaimer">
+            <strong>Подключение к API</strong>
+            <span>Данные учётной записи проверяются сервером. Если аккаунта ещё нет, его можно создать через API регистрации или административную панель.</span>
+        </div>
+    </section>
+</div>
+
+@code {
+    private string Email { get; set; } = string.Empty;
+    private string Password { get; set; } = string.Empty;
+    private string ErrorMessage { get; set; } = string.Empty;
+    private bool IsBusy { get; set; }
+
+    private async Task SignInAsync()
+    {
+        if (IsBusy)
+            return;
+
+        IsBusy = true;
+        ErrorMessage = string.Empty;
+        try
+        {
+            var account = await Api.SignInAsync(new(Email.Trim(), Password));
+            if (Session.AccessToken is { } accessToken)
+                await AuthStorage.SaveTokenAsync(accessToken);
+            Navigation.NavigateTo(account.Roles.Contains("Admin", StringComparer.OrdinalIgnoreCase) ? "/admin" : "/");
+        }
+        catch (BillboardApiException exception)
+        {
+            ErrorMessage = exception.StatusCode == System.Net.HttpStatusCode.Unauthorized
+                ? "Неверная электронная почта или пароль."
+                : exception.Message;
+        }
+        catch (HttpRequestException)
+        {
+            ErrorMessage = "Не удалось подключиться к API. Проверьте адрес сервера и повторите попытку.";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+}

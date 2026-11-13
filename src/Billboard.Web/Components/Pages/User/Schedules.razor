@@ -1,0 +1,167 @@
+@page "/schedules"
+
+@inject BillboardApiClient Api
+
+<PageTitle>Мои расписания | Billboard</PageTitle>
+
+<div class="management-page">
+    <div class="page-heading">
+        <div><h1>Мои расписания</h1><p>Управление рекламными размещениями на ваших устройствах</p></div>
+        <a href="/schedules/create" class="primary-button">+ Создать расписание</a>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+    {
+        <div class="error-message" role="alert">@ErrorMessage</div>
+    }
+
+    <div class="schedule-stats">
+        <div class="stat-card"><span>Всего размещений</span><strong>@Placements.Count</strong></div>
+        <div class="stat-card"><span>Активных</span><strong>@Placements.Count(item => IsRunning(item.Status))</strong></div>
+        <div class="stat-card"><span>Черновики / ожидают оплаты</span><strong>@Placements.Count(item => IsDraft(item.Status))</strong></div>
+    </div>
+
+    <section class="schedule-section">
+        <h2>Все размещения</h2>
+        @if (IsLoading)
+        {
+            <div class="empty-state">Загрузка размещений…</div>
+        }
+        else if (Placements.Count == 0)
+        {
+            <div class="empty-state">Размещений пока нет.</div>
+        }
+        else
+        {
+            <div class="table-wrapper">
+                <table class="schedule-table">
+                    <thead>
+                        <tr><th>Видеоролик</th><th>Устройство</th><th>Период</th><th>Показов/час</th><th>Показы</th><th>Статус</th><th>Действия</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var placement in Placements)
+                        {
+                            <tr @key="placement.Id">
+                                <td><strong>@placement.VideoFileName</strong></td>
+                                <td>@placement.BillboardName</td>
+                                <td>@placement.StartAt.ToLocalTime().ToString("dd.MM.yyyy") — @placement.EndAt.ToLocalTime().Date.AddDays(-1).ToString("dd.MM.yyyy")<small>@placement.StartTimeOfDay — @placement.EndTimeOfDay</small></td>
+                                <td>@placement.MinimumPlaysPerHour</td>
+                                <td>@placement.Plays</td>
+                                <td><span class="status @(IsRunning(placement.Status) ? "active" : "paused")">@placement.Status</span></td>
+                                <td>
+                                    <div class="actions">
+                                        <a href="@($"/schedules/edit/{placement.Id}")" class="action-button edit">Изменить</a>
+                                        @if (IsDraft(placement.Status))
+                                        {
+                                            <button class="action-button" @onclick="() => PublishAsync(placement)" disabled="@IsBusy">Опубликовать</button>
+                                        }
+                                        else if (IsRunning(placement.Status))
+                                        {
+                                            <button class="action-button" @onclick="() => PauseAsync(placement)" disabled="@IsBusy">Пауза</button>
+                                        }
+                                        else if (placement.Status.Equals("Paused", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            <button class="action-button" @onclick="() => ResumeAsync(placement)" disabled="@IsBusy">Возобновить</button>
+                                        }
+                                        @if (!placement.Status.Equals("Cancelled", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            <button class="action-button danger" @onclick="() => CancelAsync(placement)" disabled="@IsBusy">Отменить</button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    private IReadOnlyList<Billboard.Application.Contracts.PlacementDto> Placements { get; set; } = [];
+    private string? ErrorMessage { get; set; }
+    private bool IsLoading { get; set; } = true;
+    private bool IsBusy { get; set; }
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task PublishAsync(Billboard.Application.Contracts.PlacementDto placement)
+    {
+        await RunActionAsync(async () =>
+        {
+            await Api.PostAsync<Billboard.Application.Contracts.PublishPlacementResultDto>(
+                $"api/v1/placements/{placement.Id}/publish?billboardCount=1",
+                new { });
+        });
+    }
+
+    private async Task ChangeStatusAsync(Billboard.Application.Contracts.PlacementDto placement, string action) =>
+        await RunActionAsync(async () =>
+        {
+            await Api.PostAsync<Billboard.Application.Contracts.PlacementDto>(
+                $"api/v1/placements/{placement.Id}/{action}",
+                new { });
+        });
+
+    private Task PauseAsync(Billboard.Application.Contracts.PlacementDto placement) =>
+        ChangeStatusAsync(placement, "pause");
+
+    private Task ResumeAsync(Billboard.Application.Contracts.PlacementDto placement) =>
+        ChangeStatusAsync(placement, "resume");
+
+    private Task CancelAsync(Billboard.Application.Contracts.PlacementDto placement) =>
+        ChangeStatusAsync(placement, "cancel");
+
+    private async Task RunActionAsync(Func<Task> action)
+    {
+        IsBusy = true;
+        ErrorMessage = null;
+        try
+        {
+            await action();
+            await LoadAsync();
+        }
+        catch (BillboardApiException exception)
+        {
+            ErrorMessage = exception.Message;
+        }
+        catch (HttpRequestException)
+        {
+            ErrorMessage = "Не удалось подключиться к API.";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            Placements = await Api.GetListAsync<Billboard.Application.Contracts.PlacementDto>("api/v1/placements?all=false");
+            ErrorMessage = null;
+        }
+        catch (BillboardApiException exception)
+        {
+            ErrorMessage = exception.Message;
+        }
+        catch (HttpRequestException)
+        {
+            ErrorMessage = "Не удалось подключиться к API.";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private static bool IsDraft(string status) =>
+        status.Equals("Draft", StringComparison.OrdinalIgnoreCase) ||
+        status.Equals("PendingPayment", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsRunning(string status) =>
+        status.Equals("Scheduled", StringComparison.OrdinalIgnoreCase) ||
+        status.Equals("Active", StringComparison.OrdinalIgnoreCase);
+}
