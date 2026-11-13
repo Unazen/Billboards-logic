@@ -19,6 +19,10 @@ public sealed class PlaybackService(AppDbContext db, WalletLedger ledger) : IPla
 
     public async Task<PlaybackEventsResultDto> IngestAsync(Guid billboardId, IReadOnlyList<PlaybackEventDto> events, CancellationToken ct = default)
     {
+        var billboard = await db.Billboards.AsNoTracking().FirstOrDefaultAsync(b => b.Id == billboardId, ct);
+        if (billboard is { Status: BillboardStatus.Disabled })
+            throw AppException.Conflict("BILLBOARD_DISABLED", "Билборд отключён: показы не принимаются.");
+
         int accepted = 0, duplicates = 0, rejected = 0;
         var errors = new List<string>();
 

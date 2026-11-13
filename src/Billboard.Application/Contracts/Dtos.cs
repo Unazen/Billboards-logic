@@ -26,6 +26,9 @@ public record VideoDto(
 /// <summary>Источник для устройства: куда идти за файлом. Используется при сборке manifest.</summary>
 public record VideoSourceDto(Guid VideoId, Uri Url, long SizeBytes, string? Checksum);
 
+/// <summary>Поток видео для локального хранилища: отдаётся через API по подписанной ссылке.</summary>
+public record VideoStreamDto(Stream Content, string ContentType, string FileName);
+
 // ---------- Тарифы ----------
 public record TariffDto(
     Guid Id,

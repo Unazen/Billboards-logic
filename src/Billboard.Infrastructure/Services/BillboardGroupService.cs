@@ -50,7 +50,14 @@ public sealed class BillboardGroupService(AppDbContext db) : IBillboardGroupServ
         var group = new BillboardGroup { Id = Guid.NewGuid(), Name = name, OwnerId = request.OwnerId };
         db.BillboardGroups.Add(group);
         SystemLogWriter.Add(db, null, "BillboardGroupCreated", nameof(BillboardGroup), group.Id, "OK", name);
-        await db.SaveChangesAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException)
+        {
+            throw AppException.Conflict("GROUP_NAME_EXISTS", "Группа с таким названием уже существует.");
+        }
         return Map(group);
     }
 
@@ -62,7 +69,14 @@ public sealed class BillboardGroupService(AppDbContext db) : IBillboardGroupServ
 
         group.Name = name;
         SystemLogWriter.Add(db, null, "BillboardGroupRenamed", nameof(BillboardGroup), group.Id, "OK", name);
-        await db.SaveChangesAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException)
+        {
+            throw AppException.Conflict("GROUP_NAME_EXISTS", "Группа с таким названием уже существует.");
+        }
         return Map(group);
     }
 

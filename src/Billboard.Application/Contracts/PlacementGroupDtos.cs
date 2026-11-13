@@ -17,7 +17,7 @@ public record PlacementGroupTemplateDto(
     int VideoDurationSeconds = 0);
 
 public record PlacementGroupRequestDto(
-    [Required, MinLength(1), MaxLength(100)] IReadOnlyList<Guid> BillboardIds,
+    [Required, MaxLength(100)] IReadOnlyList<Guid> BillboardIds,
     [Required] PlacementGroupTemplateDto Template);
 
 public record GroupScheduleConflictDto(string Code, string Message);

@@ -126,7 +126,7 @@ public class PlacementLifecycleTests
         var (_, _, placementId) = await t.AddPlacementAsync(user);
         await Wallets(t).TopUpAsync(user, new TopUpRequest(10m, "top"));
 
-        var published = await Service(t).PublishAsync(user, placementId, 1);
+        var published = await Service(t).PublishAsync(user, false, placementId, 1);
 
         Assert.Equal("Scheduled", published.Status);
         Assert.Equal(2.70m, published.ReservedAmount); // 9 ч * 6 показов * 0.05
@@ -144,7 +144,7 @@ public class PlacementLifecycleTests
         var (_, _, placementId) = await t.AddPlacementAsync(user);
         await Wallets(t).TopUpAsync(user, new TopUpRequest(1m, "top"));
 
-        var ex = await Assert.ThrowsAsync<AppException>(() => Service(t).PublishAsync(user, placementId, 1));
+        var ex = await Assert.ThrowsAsync<AppException>(() => Service(t).PublishAsync(user, false, placementId, 1));
 
         Assert.Equal("INSUFFICIENT_FUNDS", ex.Code);
         await using var db = t.New();
@@ -160,9 +160,9 @@ public class PlacementLifecycleTests
         var user = await t.AddUserAsync();
         var (_, _, placementId) = await t.AddPlacementAsync(user);
         await Wallets(t).TopUpAsync(user, new TopUpRequest(10m, "top"));
-        await Service(t).PublishAsync(user, placementId, 1);
+        await Service(t).PublishAsync(user, false, placementId, 1);
 
-        var cancelled = await Service(t).CancelAsync(user, placementId);
+        var cancelled = await Service(t).CancelAsync(user, false, placementId);
 
         Assert.Equal("Cancelled", cancelled.Status);
         var wallet = await Wallets(t).GetWalletAsync(user);
@@ -178,7 +178,7 @@ public class PlacementLifecycleTests
         var user = await t.AddUserAsync();
         var (billboardId, videoId, placementId) = await t.AddPlacementAsync(user);
         await Wallets(t).TopUpAsync(user, new TopUpRequest(10m, "top"));
-        await Service(t).PublishAsync(user, placementId, 1);
+        await Service(t).PublishAsync(user, false, placementId, 1);
 
         var request = new PlacementUpsertRequest(videoId, billboardId,
             new DateTimeOffset(2026, 11, 2, 0, 0, 0, TimeSpan.Zero),
@@ -198,13 +198,13 @@ public class PlacementLifecycleTests
         var user = await t.AddUserAsync();
         var (_, _, placementId) = await t.AddPlacementAsync(user);
         await Wallets(t).TopUpAsync(user, new TopUpRequest(10m, "top"));
-        await Service(t).PublishAsync(user, placementId, 1);
+        await Service(t).PublishAsync(user, false, placementId, 1);
 
-        var paused = await Service(t).PauseAsync(user, placementId);
+        var paused = await Service(t).PauseAsync(user, false, placementId);
         Assert.Equal("Paused", paused.Status);
         Assert.Equal(PlacementService.ManualPause, paused.PauseReason);
 
-        var resumed = await Service(t).ResumeAsync(user, placementId);
+        var resumed = await Service(t).ResumeAsync(user, false, placementId);
         Assert.Equal("Scheduled", resumed.Status);
         Assert.Equal(2.70m, (await Wallets(t).GetWalletAsync(user)).ReservedBalance);
     }
@@ -218,7 +218,7 @@ public class PlacementLifecycleTests
         var stranger = await t.AddUserAsync();
         var (_, _, placementId) = await t.AddPlacementAsync(owner);
 
-        var ex = await Assert.ThrowsAsync<AppException>(() => Service(t).PublishAsync(stranger, placementId, 1));
+        var ex = await Assert.ThrowsAsync<AppException>(() => Service(t).PublishAsync(stranger, false, placementId, 1));
 
         Assert.Equal(404, ex.StatusCode);
     }
@@ -251,6 +251,9 @@ public class DeviceManifestTests
             throw new NotSupportedException();
 
         public Task<Uri> GetDownloadUrlAsync(Guid userId, bool isAdmin, Guid videoId, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task<VideoStreamDto> OpenStreamAsync(Guid videoId, CancellationToken ct = default) =>
             throw new NotSupportedException();
     }
 

@@ -46,7 +46,7 @@ public class PlacementsController(IPlacementService placements) : ApiControllerB
     [HttpGet("{id:guid}/alternatives")]
     public async Task<ActionResult<IReadOnlyList<AlternativeWindowDto>>> Alternatives(
         Guid id, [FromQuery] int max = 3, CancellationToken ct = default) =>
-        Ok(await placements.GetAlternativesAsync(UserId, id, max, ct));
+        Ok(await placements.GetAlternativesAsync(UserId, IsAdmin, id, max, ct));
 
     /// <summary>
     /// Публикация: проверка ёмкости, резерв бюджета, статус Scheduled.
@@ -55,18 +55,18 @@ public class PlacementsController(IPlacementService placements) : ApiControllerB
     [HttpPost("{id:guid}/publish")]
     public async Task<ActionResult<PublishPlacementResultDto>> Publish(
         Guid id, [FromQuery] int billboardCount = 1, CancellationToken ct = default) =>
-        Ok(await placements.PublishAsync(UserId, id, billboardCount, ct));
+        Ok(await placements.PublishAsync(UserId, IsAdmin, id, billboardCount, ct));
 
     [HttpPost("{id:guid}/pause")]
     public async Task<ActionResult<PlacementDto>> Pause(Guid id, CancellationToken ct) =>
-        Ok(await placements.PauseAsync(UserId, id, ct));
+        Ok(await placements.PauseAsync(UserId, IsAdmin, id, ct));
 
     [HttpPost("{id:guid}/resume")]
     public async Task<ActionResult<PlacementDto>> Resume(Guid id, CancellationToken ct) =>
-        Ok(await placements.ResumeAsync(UserId, id, ct));
+        Ok(await placements.ResumeAsync(UserId, IsAdmin, id, ct));
 
     /// <summary>Отмена: неиспользованный резерв возвращается на баланс.</summary>
     [HttpPost("{id:guid}/cancel")]
     public async Task<ActionResult<PlacementDto>> Cancel(Guid id, CancellationToken ct) =>
-        Ok(await placements.CancelAsync(UserId, id, ct));
+        Ok(await placements.CancelAsync(UserId, IsAdmin, id, ct));
 }

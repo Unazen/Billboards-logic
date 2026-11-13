@@ -1,5 +1,6 @@
 using Billboard.Api.Infrastructure;
 using Billboard.Application.Contracts;
+using Billboard.Infrastructure.Media;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -8,7 +9,7 @@ namespace Billboard.Api.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/v1/videos")]
-public class VideosController(IVideoService videos) : ApiControllerBase
+public class VideosController(IVideoService videos, VideoStreamTokens streamTokens) : ApiControllerBase
 {
     /// <summary>Медиатека текущего клиента (администратор может запросить все: ?all=true).</summary>
     [HttpGet]
@@ -56,4 +57,19 @@ public class VideosController(IVideoService videos) : ApiControllerBase
     [HttpGet("{id:guid}/download")]
     public async Task<IActionResult> Download(Guid id, CancellationToken ct) =>
         Ok(new { url = (await videos.GetDownloadUrlAsync(UserId, IsAdmin, id, ct)).ToString() });
+
+    /// <summary>
+    /// Отдача файла при локальном хранилище. Доступ по подписанной ссылке из манифеста
+    /// (presigned URL S3 здесь недоступен), поэтому обычная авторизация не требуется.
+    /// </summary>
+    [AllowAnonymous]
+    [HttpGet("{id:guid}/stream")]
+    public async Task<IActionResult> Stream(Guid id, [FromQuery] string? token, CancellationToken ct)
+    {
+        if (!streamTokens.TryValidate(token, id, out _))
+            return Unauthorized(new { code = "INVALID_STREAM_TOKEN", message = "Ссылка недействительна или истекла." });
+
+        var file = await videos.OpenStreamAsync(id, ct);
+        return File(file.Content, file.ContentType, enableRangeProcessing: true);
+    }
 }

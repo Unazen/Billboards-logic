@@ -27,6 +27,9 @@ public interface IVideoService
 
     /// <summary>Для manifest устройства: файл (предпочтительно сжатый вариант) и ссылка на него.</summary>
     Task<VideoSourceDto> GetPlaybackSourceAsync(Guid videoId, CancellationToken ct = default);
+
+    /// <summary>Открывает файл для HTTP-отдачи (локальное хранилище).</summary>
+    Task<VideoStreamDto> OpenStreamAsync(Guid videoId, CancellationToken ct = default);
 }
 
 public interface IWalletService
@@ -93,16 +96,16 @@ public interface IPlacementService
     Task<PlacementDto> UpdateAsync(Guid userId, Guid id, PlacementUpsertRequest request, CancellationToken ct = default);
 
     Task<PlacementValidationResultDto> ValidateAsync(Guid userId, PlacementUpsertRequest request, CancellationToken ct = default);
-    Task<IReadOnlyList<AlternativeWindowDto>> GetAlternativesAsync(Guid userId, Guid id, int max, CancellationToken ct = default);
+    Task<IReadOnlyList<AlternativeWindowDto>> GetAlternativesAsync(Guid userId, bool isAdmin, Guid id, int max, CancellationToken ct = default);
 
-    /// <summary>Проверяет расписание, резервирует бюджет и переводит в Scheduled.</summary>
-    Task<PublishPlacementResultDto> PublishAsync(Guid userId, Guid id, int billboardCount, CancellationToken ct = default);
+    /// <summary>Проверяет расписание, резервирует бюджет и переводит в Scheduled. Админ действует от имени владельца.</summary>
+    Task<PublishPlacementResultDto> PublishAsync(Guid userId, bool isAdmin, Guid id, int billboardCount, CancellationToken ct = default);
 
-    Task<PlacementDto> PauseAsync(Guid userId, Guid id, CancellationToken ct = default);
-    Task<PlacementDto> ResumeAsync(Guid userId, Guid id, CancellationToken ct = default);
+    Task<PlacementDto> PauseAsync(Guid userId, bool isAdmin, Guid id, CancellationToken ct = default);
+    Task<PlacementDto> ResumeAsync(Guid userId, bool isAdmin, Guid id, CancellationToken ct = default);
 
     /// <summary>Отменяет размещение и возвращает неиспользованный резерв.</summary>
-    Task<PlacementDto> CancelAsync(Guid userId, Guid id, CancellationToken ct = default);
+    Task<PlacementDto> CancelAsync(Guid userId, bool isAdmin, Guid id, CancellationToken ct = default);
 }
 
 /// <summary>Серверная часть API симулятора: манифест, отчёт о кэше, конфигурация.</summary>

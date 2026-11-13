@@ -160,6 +160,9 @@ namespace Billboard.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Name")
+                        .IsUnique();
+
                     b.HasIndex("OwnerId");
 
                     b.ToTable("BillboardGroups");
