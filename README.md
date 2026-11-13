@@ -26,19 +26,19 @@
 
 - API: http://localhost:8080
 - OpenAPI: http://localhost:8080/openapi/v1.json
-- Консоль MinIO: http://localhost:9001
 - Проверка живости: http://localhost:8080/health
 
 Администратор создаётся при старте из `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`.
-Схема БД применяется миграциями автоматически.
+Схема БД применяется миграциями автоматически. Для локального запуска Compose хранит видео
+в Docker volume и не требует отдельного S3-хранилища.
 
 ### Локально без Docker
 
-    # PostgreSQL и MinIO должны быть запущены, строка подключения — в appsettings
+    # PostgreSQL должен быть запущен, строка подключения — в appsettings
     dotnet build BillboardSystem.slnx
     dotnet run --project src/Billboard.Api
 
-Для разработки без MinIO можно хранить файлы на диске:
+Для разработки без S3-хранилища можно хранить файлы на диске:
 
     "Storage": { "Provider": "Local", "LocalPath": "./storage-data" }
 
