@@ -132,7 +132,7 @@
         try
         {
             var videosTask = Api.GetListAsync<Billboard.Application.Contracts.VideoDto>("api/v1/videos?all=false");
-            var billboardsTask = Api.GetListAsync<Billboard.Application.Contracts.BillboardDto>("api/v1/billboards?mine=true");
+            var billboardsTask = Api.GetListAsync<Billboard.Application.Contracts.BillboardDto>("api/v1/billboards");
             var groupsTask = Api.GetListAsync<Billboard.Application.Contracts.BillboardGroupDto>("api/v1/billboard-groups?mine=true");
             await Task.WhenAll(videosTask, billboardsTask, groupsTask);
             Videos = await videosTask;

@@ -41,6 +41,12 @@ services:
     volumes:
       - dpkeys:/keys
       - videodata:/data/videos
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
 
   web:
     build:
@@ -49,7 +55,8 @@ services:
       network: host
     restart: unless-stopped
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
       BillboardApi__BaseUrl: http://api:8080/
