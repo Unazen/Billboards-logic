@@ -16,10 +16,10 @@
 
         <form @onsubmit="SignInAsync" @onsubmit:preventDefault>
             <label for="email">Электронная почта</label>
-            <input id="email" type="email" autocomplete="username" @bind="Email" required disabled="@IsBusy" />
+            <input id="email" type="email" autocomplete="username" @bind="Email" @bind:event="oninput" required disabled="@IsBusy" />
 
             <label for="password">Пароль</label>
-            <input id="password" type="password" autocomplete="current-password" @bind="Password" required disabled="@IsBusy" />
+            <input id="password" type="password" autocomplete="current-password" @bind="Password" @bind:event="oninput" required disabled="@IsBusy" />
 
             @if (!string.IsNullOrWhiteSpace(ErrorMessage))
             {
