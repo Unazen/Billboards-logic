@@ -1,0 +1,131 @@
+.tariff-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(245px, 1fr));
+    gap: 18px;
+}
+
+.tariff-card {
+    display: flex;
+    flex-direction: column;
+    min-height: 390px;
+    padding: 22px;
+}
+
+.tariff-card.current {
+    border-color: #3978ed;
+    box-shadow: 0 0 0 2px rgb(57 120 237 / 8%);
+}
+
+.tariff-card-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.tariff-eyebrow {
+    color: #3978ed;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+.tariff-card h2 {
+    margin: 5px 0 0;
+    color: #172033;
+    font-size: 20px;
+}
+
+.tariff-current {
+    padding: 6px 9px;
+    border-radius: 20px;
+    background: #e8f8ef;
+    color: #25885b;
+    font-size: 10px;
+    white-space: nowrap;
+}
+
+.tariff-description {
+    min-height: 38px;
+    margin: 15px 0;
+    color: #8490a3;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.tariff-price {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #edf0f5;
+}
+
+.tariff-price strong {
+    color: #172033;
+    font-size: 24px;
+}
+
+.tariff-price span {
+    color: #929eb3;
+    font-size: 11px;
+}
+
+.tariff-features {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 12px;
+    margin: 18px 0;
+    padding: 0;
+    list-style: none;
+}
+
+.tariff-features li {
+    display: flex;
+    gap: 9px;
+    color: #536174;
+    font-size: 12px;
+}
+
+.tariff-features li span {
+    color: #20b879;
+    font-weight: 700;
+}
+
+.billing-button {
+    width: 100%;
+    padding: 11px 14px;
+    border: 0;
+    border-radius: 8px;
+    background: #3978ed;
+    color: white;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.billing-button:hover:not(:disabled) {
+    background: #2867db;
+}
+
+.billing-button.secondary,
+.billing-button:disabled {
+    background: #edf0f5;
+    color: #7d8798;
+    cursor: default;
+}
+
+.billing-message {
+    padding: 12px 14px;
+    border-radius: 8px;
+    background: #eff5ff;
+    color: #315d9f;
+    font-size: 12px;
+}
+
+@media (max-width: 600px) {
+    .tariff-card {
+        min-height: 0;
+    }
+}

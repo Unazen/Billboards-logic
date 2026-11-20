@@ -1,0 +1,134 @@
+@page "/payments"
+
+@inject BillboardApiClient Api
+
+<PageTitle>Платежи | Billboard</PageTitle>
+
+<div class="client-page">
+    <div class="client-page-heading">
+        <div>
+            <h1>Платежи</h1>
+            <p>История пополнений, оплат размещений и тарифов</p>
+        </div>
+        <a class="billing-button payment-topup-link" href="/wallet">Пополнить баланс</a>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+    {
+        <div class="billing-message" role="alert">@ErrorMessage</div>
+    }
+    else if (Wallet is null)
+    {
+        <div class="client-panel client-empty-state">Загрузка истории платежей…</div>
+    }
+    else
+    {
+        <div class="client-stat-grid client-stat-grid-three">
+            <div class="client-stat-card">
+                <span class="client-stat-icon green">＋</span>
+                <span class="client-stat-label">Зачислено</span>
+                <strong>@TotalIncoming.ToString("N2", RussianCulture) $</strong>
+                <small>По загруженной истории операций</small>
+            </div>
+            <div class="client-stat-card">
+                <span class="client-stat-icon orange">−</span>
+                <span class="client-stat-label">Списано</span>
+                <strong>@TotalOutgoing.ToString("N2", RussianCulture) $</strong>
+                <small>Оплаты и резервы по размещениям</small>
+            </div>
+            <div class="client-stat-card">
+                <span class="client-stat-icon blue">⇄</span>
+                <span class="client-stat-label">Текущий баланс</span>
+                <strong>@Wallet.Balance.ToString("N2", RussianCulture) $</strong>
+                <small><a href="/wallet">Открыть баланс →</a></small>
+            </div>
+        </div>
+
+        <section class="client-panel payments-panel">
+            <div class="payments-toolbar">
+                <div>
+                    <h2>История операций</h2>
+                    <p>@FilteredTransactions.Count операций</p>
+                </div>
+                <label class="payments-filter">
+                    <span>Тип операции</span>
+                    <select @bind="SelectedType">
+                        <option value="">Все операции</option>
+                        @foreach (var type in TransactionTypes)
+                        {
+                            <option value="@type">@type</option>
+                        }
+                    </select>
+                </label>
+            </div>
+
+            @if (FilteredTransactions.Count == 0)
+            {
+                <div class="client-empty-state">
+                    <h2>Операций пока нет</h2>
+                    <p>Пополнения и списания появятся здесь.</p>
+                </div>
+            }
+            else
+            {
+                <div class="client-responsive-table">
+                    <table class="client-table">
+                        <thead>
+                            <tr><th>Дата и время</th><th>Операция</th><th>Описание</th><th>Сумма</th><th>Баланс после операции</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var transaction in FilteredTransactions)
+                            {
+                                <tr @key="transaction.Id">
+                                    <td>@transaction.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                                    <td><span class="payment-type">@transaction.Type</span></td>
+                                    <td>@transaction.Description</td>
+                                    <td class="@(transaction.Amount >= 0 ? "amount-positive" : "amount-negative")">
+                                        @(transaction.Amount > 0 ? "+" : string.Empty)@transaction.Amount.ToString("N2", RussianCulture) $
+                                    </td>
+                                    <td>@transaction.BalanceAfter.ToString("N2", RussianCulture) $</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    private static readonly System.Globalization.CultureInfo RussianCulture =
+        System.Globalization.CultureInfo.GetCultureInfo("ru-RU");
+
+    private string SelectedType { get; set; } = string.Empty;
+    private string? ErrorMessage { get; set; }
+    private Billboard.Application.Contracts.WalletDto? Wallet { get; set; }
+    private IReadOnlyList<Billboard.Application.Contracts.WalletTransactionDto> Transactions { get; set; } = [];
+    private IReadOnlyList<string> TransactionTypes => Transactions.Select(transaction => transaction.Type).Distinct().Order().ToList();
+    private IReadOnlyList<Billboard.Application.Contracts.WalletTransactionDto> FilteredTransactions => Transactions
+        .Where(transaction => string.IsNullOrEmpty(SelectedType) || transaction.Type == SelectedType)
+        .ToList();
+    private decimal TotalIncoming => Transactions.Where(transaction => transaction.Amount > 0).Sum(transaction => transaction.Amount);
+    private decimal TotalOutgoing => -Transactions.Where(transaction => transaction.Amount < 0).Sum(transaction => transaction.Amount);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var walletTask = Api.GetAsync<Billboard.Application.Contracts.WalletDto>("api/v1/billing/wallet");
+            var transactionsTask = Api.GetListAsync<Billboard.Application.Contracts.WalletTransactionDto>("api/v1/billing/transactions?take=100");
+            await Task.WhenAll(walletTask, transactionsTask);
+            Wallet = await walletTask;
+            Transactions = await transactionsTask;
+        }
+        catch (BillboardApiException exception)
+        {
+            ErrorMessage = exception.Message;
+        }
+        catch (HttpRequestException)
+        {
+            ErrorMessage = "Не удалось подключиться к API.";
+        }
+    }
+}

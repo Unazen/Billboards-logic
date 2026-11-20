@@ -1,0 +1,154 @@
+@page "/"
+
+@inject ApiSession Session
+@inject BillboardApiClient Api
+
+<PageTitle>Главная страница кабинета | Billboard</PageTitle>
+
+<div class="client-dashboard">
+    <div class="client-welcome">
+        <div>
+            <span class="client-eyebrow">ЛИЧНЫЙ КАБИНЕТ</span>
+            <h2>Здравствуйте, @Session.CurrentName</h2>
+            <p>Состояние устройств, размещений и рекламных материалов из системы.</p>
+        </div>
+        <span class="client-date">@DateTime.Today.ToString("dd MMMM yyyy", RussianCulture)</span>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+    {
+        <div class="billing-message" role="alert">@ErrorMessage</div>
+    }
+    else if (IsLoading)
+    {
+        <div class="client-panel client-empty-state">Загрузка данных кабинета…</div>
+    }
+    else
+    {
+        <div class="client-stat-grid">
+            <a class="client-stat-card" href="/my-billboards">
+                <span class="client-stat-icon blue">▣</span>
+                <span class="client-stat-label">Мои билборды</span>
+                <strong>@Billboards.Count</strong>
+                <small>@Billboards.Count(device => IsOnline(device.Status)) из них в сети</small>
+            </a>
+            <a class="client-stat-card" href="/my-groups">
+                <span class="client-stat-icon violet">▤</span>
+                <span class="client-stat-label">Группы устройств</span>
+                <strong>@Groups.Count</strong>
+                <small>Группы, доступные вашему аккаунту</small>
+            </a>
+            <a class="client-stat-card" href="/videos">
+                <span class="client-stat-icon green">▶</span>
+                <span class="client-stat-label">Рекламные материалы</span>
+                <strong>@Videos.Count</strong>
+                <small>Загруженные материалы</small>
+            </a>
+            <a class="client-stat-card" href="/schedules">
+                <span class="client-stat-icon orange">◷</span>
+                <span class="client-stat-label">Размещения</span>
+                <strong>@Placements.Count</strong>
+                <small>Активных: @Placements.Count(placement => IsActive(placement.Status))</small>
+            </a>
+        </div>
+
+        <div class="client-dashboard-grid">
+            <section class="client-panel">
+                <div class="client-panel-heading">
+                    <div><h3>Состояние билбордов</h3><p>Данные текущего пользователя</p></div>
+                    <a href="/my-billboards">Все билборды →</a>
+                </div>
+                @if (Billboards.Count == 0)
+                {
+                    <div class="client-empty">Доступных билбордов пока нет.</div>
+                }
+                else
+                {
+                    <div class="client-device-list">
+                        @foreach (var device in Billboards.Take(4))
+                        {
+                            <div class="client-device-row" @key="device.Id">
+                                <span class="client-device-icon">▣</span>
+                                <div class="client-device-info"><strong>@device.Name</strong><small>@device.Address</small></div>
+                                <span class="client-status @(IsOnline(device.Status) ? "online" : "offline")"><i></i>@device.Status</span>
+                            </div>
+                        }
+                    </div>
+                }
+            </section>
+
+            <section class="client-panel">
+                <div class="client-panel-heading">
+                    <div><h3>Ваши размещения</h3><p>Рекламные показы на выбранных устройствах</p></div>
+                    <a href="/schedules">Все размещения →</a>
+                </div>
+                @if (Placements.Count == 0)
+                {
+                    <div class="client-empty">Размещений пока нет. Создайте первое расписание.</div>
+                }
+                else
+                {
+                    <div class="client-schedule-list">
+                        @foreach (var placement in Placements.Take(3))
+                        {
+                            <div class="client-schedule-row" @key="placement.Id">
+                                <span class="client-schedule-icon">◷</span>
+                                <div><strong>@placement.VideoFileName</strong><small>@placement.BillboardName · до @placement.EndAt.ToLocalTime().Date.AddDays(-1).ToString("dd.MM.yyyy")</small></div>
+                                <span class="client-status @(IsActive(placement.Status) ? "online" : "paused")"><i></i>@placement.Status</span>
+                            </div>
+                        }
+                    </div>
+                }
+            </section>
+        </div>
+    }
+</div>
+
+@code {
+    private static readonly System.Globalization.CultureInfo RussianCulture =
+        System.Globalization.CultureInfo.GetCultureInfo("ru-RU");
+
+    private IReadOnlyList<Billboard.Application.Contracts.BillboardDto> Billboards { get; set; } = [];
+    private IReadOnlyList<Billboard.Application.Contracts.BillboardGroupDto> Groups { get; set; } = [];
+    private IReadOnlyList<Billboard.Application.Contracts.VideoDto> Videos { get; set; } = [];
+    private IReadOnlyList<Billboard.Application.Contracts.PlacementDto> Placements { get; set; } = [];
+    private string? ErrorMessage { get; set; }
+    private bool IsLoading { get; set; } = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var billboardsTask = Api.GetListAsync<Billboard.Application.Contracts.BillboardDto>("api/v1/billboards?mine=true");
+            var groupsTask = Api.GetListAsync<Billboard.Application.Contracts.BillboardGroupDto>("api/v1/billboard-groups?mine=true");
+            var videosTask = Api.GetListAsync<Billboard.Application.Contracts.VideoDto>("api/v1/videos?all=false");
+            var placementsTask = Api.GetListAsync<Billboard.Application.Contracts.PlacementDto>("api/v1/placements?all=false");
+            await Task.WhenAll(billboardsTask, groupsTask, videosTask, placementsTask);
+            Billboards = await billboardsTask;
+            Groups = await groupsTask;
+            Videos = await videosTask;
+            Placements = await placementsTask;
+        }
+        catch (BillboardApiException exception)
+        {
+            ErrorMessage = exception.Message;
+        }
+        catch (HttpRequestException)
+        {
+            ErrorMessage = "Не удалось подключиться к API.";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private static bool IsOnline(string status) =>
+        status.Equals("Online", StringComparison.OrdinalIgnoreCase) ||
+        status.Equals("В сети", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsActive(string status) =>
+        status.Equals("Active", StringComparison.OrdinalIgnoreCase) ||
+        status.Equals("Scheduled", StringComparison.OrdinalIgnoreCase) ||
+        status.Equals("Опубликовано", StringComparison.OrdinalIgnoreCase);
+}

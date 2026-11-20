@@ -1,0 +1,285 @@
+@page "/admin/billboards"
+
+@inject BillboardApiClient Api
+
+<PageTitle>Билборды | Billboard</PageTitle>
+
+<div class="management-page">
+    <div class="management-heading">
+        <div>
+            <h1>Билборды</h1>
+            <p>Управление устройствами и их владельцами</p>
+            <a href="/admin/groups">Управление группами устройств →</a>
+        </div>
+        <span class="management-count">Всего: @Devices.Count</span>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(Message))
+    {
+        <p class="form-message" role="status">@Message</p>
+    }
+    @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+    {
+        <p class="form-message" role="alert">@ErrorMessage</p>
+    }
+
+    <section class="management-card">
+        <h2>Добавить билборд</h2>
+        <div class="add-form">
+            <input @bind="NewName" placeholder="Название устройства" maxlength="200" />
+            <input @bind="NewAddress" placeholder="Местоположение" maxlength="500" />
+            <input type="number" min="1" max="3600" step="1" @bind="NewAdvertCapacitySecondsPerHour" aria-label="Рекламная ёмкость, секунд в час" title="Рекламная ёмкость, секунд в час" />
+            <input type="number" min="0.0001" max="100000" step="0.01" @bind="NewPricePerPlay" aria-label="Цена за показ" title="Цена за показ" />
+            <select @bind="SelectedOwnerId">
+                <option value="">Без владельца</option>
+                @foreach (var user in Users.Where(user => user.Roles.Contains("Client", StringComparer.OrdinalIgnoreCase)))
+                {
+                    <option value="@user.Id">@user.DisplayName (@user.Email)</option>
+                }
+            </select>
+            <button class="primary-button" @onclick="CreateDeviceAsync" disabled="@IsBusy">+ Добавить</button>
+        </div>
+    </section>
+
+    <section class="management-card">
+        <h2>Список устройств</h2>
+        @if (IsLoading)
+        {
+            <p>Загрузка устройств…</p>
+        }
+        else
+        {
+            <div class="table-wrapper">
+                <table class="management-table">
+                    <thead><tr><th>ID</th><th>Название</th><th>Местоположение</th><th>Владелец</th><th>Цена за показ</th><th>Ёмкость, с/ч</th><th>Состояние</th><th>Последнее соединение</th><th>Действие</th></tr></thead>
+                    <tbody>
+                        @foreach (var device in Devices)
+                        {
+                            var owner = Users.FirstOrDefault(user => user.Id == device.OwnerId);
+                            var disabled = device.Status.Equals("Disabled", StringComparison.OrdinalIgnoreCase);
+                            <tr @key="device.Id">
+                                <td>@device.Id</td>
+                                <td>@device.Name</td>
+                                <td>@device.Address</td>
+                                <td>@(owner?.DisplayName ?? "Не назначен")</td>
+                                <td>@device.PricePerPlay.ToString("N2")</td>
+                                <td>@device.AdvertCapacitySecondsPerHour</td>
+                                <td>@device.Status</td>
+                                <td>@(device.LastSeenAt?.ToLocalTime().ToString("dd.MM.yyyy HH:mm") ?? "Нет данных")</td>
+                                <td>
+                                    <button class="action-button" @onclick="() => BeginEdit(device)" disabled="@IsBusy">Изменить</button>
+                                    <button class="action-button" @onclick="() => SetDeviceDisabledAsync(device)" disabled="@(IsBusy || disabled)">@(disabled ? "Отключено" : "Отключить")</button>
+                                </td>
+                            </tr>
+                            @if (EditingDeviceId == device.Id)
+                            {
+                                <tr>
+                                    <td colspan="9">
+                                        <div class="billboard-edit-form">
+                                            <input @bind="EditName" aria-label="Название билборда" />
+                                            <input @bind="EditAddress" aria-label="Местоположение билборда" />
+                                            <select @bind="EditOwnerId" aria-label="Владелец билборда">
+                                                <option value="">Без владельца</option>
+                                                @foreach (var user in Users.Where(user => user.Roles.Contains("Client", StringComparer.OrdinalIgnoreCase)))
+                                                {
+                                                    <option value="@user.Id">@user.DisplayName (@user.Email)</option>
+                                                }
+                                            </select>
+                                            <input type="number" min="1" max="3600" step="1" @bind="EditAdvertCapacitySecondsPerHour" aria-label="Рекламная ёмкость, секунд в час" />
+                                            <input type="number" min="0.0001" max="100000" step="0.01" @bind="EditPricePerPlay" aria-label="Цена за показ" />
+                                            <button class="primary-button" @onclick="() => SaveDeviceAsync(device)" disabled="@IsBusy">Сохранить</button>
+                                            <button class="action-button" @onclick="CancelEdit" disabled="@IsBusy">Отмена</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    private IReadOnlyList<Billboard.Application.Contracts.BillboardDto> Devices { get; set; } = [];
+    private IReadOnlyList<Billboard.Application.Contracts.AdminUserDto> Users { get; set; } = [];
+    private string NewName { get; set; } = string.Empty;
+    private string NewAddress { get; set; } = string.Empty;
+    private string SelectedOwnerId { get; set; } = string.Empty;
+    private int NewAdvertCapacitySecondsPerHour { get; set; } = 1800;
+    private decimal NewPricePerPlay { get; set; } = 30m;
+    private Guid? EditingDeviceId { get; set; }
+    private string EditName { get; set; } = string.Empty;
+    private string EditAddress { get; set; } = string.Empty;
+    private string EditOwnerId { get; set; } = string.Empty;
+    private int EditAdvertCapacitySecondsPerHour { get; set; }
+    private decimal EditPricePerPlay { get; set; }
+    private string? Message { get; set; }
+    private string? ErrorMessage { get; set; }
+    private bool IsLoading { get; set; } = true;
+    private bool IsBusy { get; set; }
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task CreateDeviceAsync()
+    {
+        if (string.IsNullOrWhiteSpace(NewName) ||
+            string.IsNullOrWhiteSpace(NewAddress) ||
+            NewAdvertCapacitySecondsPerHour is < 1 or > 3600 ||
+            NewPricePerPlay is <= 0 or > 100000)
+        {
+            ErrorMessage = "Укажите название, местоположение, ёмкость от 1 до 3600 секунд в час и цену больше нуля.";
+            return;
+        }
+
+        IsBusy = true;
+        Message = null;
+        ErrorMessage = null;
+        try
+        {
+            Guid? ownerId = Guid.TryParse(SelectedOwnerId, out var owner) ? owner : null;
+            var created = await Api.PostAsync<Billboard.Application.Contracts.BillboardCreatedDto>(
+                "api/v1/admin/billboards",
+                new Billboard.Application.Contracts.BillboardUpsertRequest(
+                    NewName.Trim(),
+                    NewAddress.Trim(),
+                    null,
+                    null,
+                    32L * 1024 * 1024 * 1024,
+                    NewAdvertCapacitySecondsPerHour,
+                    NewPricePerPlay,
+                    null,
+                    ownerId));
+            NewName = NewAddress = string.Empty;
+            Message = $"Устройство создано. Сохраните токен устройства: {created.DeviceToken}";
+            await LoadAsync();
+        }
+        catch (BillboardApiException exception)
+        {
+            ErrorMessage = exception.Message;
+        }
+        catch (HttpRequestException)
+        {
+            ErrorMessage = "Не удалось подключиться к API.";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private void BeginEdit(Billboard.Application.Contracts.BillboardDto device)
+    {
+        EditingDeviceId = device.Id;
+        EditName = device.Name;
+        EditAddress = device.Address;
+        EditOwnerId = device.OwnerId?.ToString() ?? string.Empty;
+        EditAdvertCapacitySecondsPerHour = device.AdvertCapacitySecondsPerHour;
+        EditPricePerPlay = device.PricePerPlay;
+        ErrorMessage = null;
+        Message = null;
+    }
+
+    private void CancelEdit() => EditingDeviceId = null;
+
+    private async Task SaveDeviceAsync(Billboard.Application.Contracts.BillboardDto device)
+    {
+        if (string.IsNullOrWhiteSpace(EditName) ||
+            string.IsNullOrWhiteSpace(EditAddress) ||
+            EditAdvertCapacitySecondsPerHour is < 1 or > 3600 ||
+            EditPricePerPlay is <= 0 or > 100000)
+        {
+            ErrorMessage = "Укажите название, местоположение, ёмкость от 1 до 3600 секунд в час и цену больше нуля.";
+            return;
+        }
+
+        IsBusy = true;
+        Message = null;
+        ErrorMessage = null;
+        try
+        {
+            Guid? ownerId = Guid.TryParse(EditOwnerId, out var owner) ? owner : null;
+            await Api.PatchAsync<Billboard.Application.Contracts.BillboardDto>(
+                $"api/v1/admin/billboards/{device.Id}",
+                new Billboard.Application.Contracts.BillboardUpsertRequest(
+                    EditName.Trim(),
+                    EditAddress.Trim(),
+                    device.Latitude,
+                    device.Longitude,
+                    device.CapacityBytes,
+                    EditAdvertCapacitySecondsPerHour,
+                    EditPricePerPlay,
+                    device.TimeZoneId,
+                    ownerId));
+            EditingDeviceId = null;
+            Message = $"Настройки устройства {EditName.Trim()} сохранены.";
+            await LoadAsync();
+        }
+        catch (BillboardApiException exception)
+        {
+            ErrorMessage = exception.Message;
+        }
+        catch (HttpRequestException)
+        {
+            ErrorMessage = "Не удалось подключиться к API.";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task SetDeviceDisabledAsync(Billboard.Application.Contracts.BillboardDto device)
+    {
+        if (device.Status.Equals("Disabled", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        IsBusy = true;
+        Message = null;
+        ErrorMessage = null;
+        try
+        {
+            await Api.PostAsync<Billboard.Application.Contracts.BillboardDto>($"api/v1/admin/billboards/{device.Id}/disable", new { });
+            Message = $"Устройство {device.Name} отключено.";
+            await LoadAsync();
+        }
+        catch (BillboardApiException exception)
+        {
+            ErrorMessage = exception.Message;
+        }
+        catch (HttpRequestException)
+        {
+            ErrorMessage = "Не удалось подключиться к API.";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            var devicesTask = Api.GetListAsync<Billboard.Application.Contracts.BillboardDto>("api/v1/admin/billboards");
+            var usersTask = Api.GetListAsync<Billboard.Application.Contracts.AdminUserDto>("api/v1/admin/users?skip=0&take=100");
+            await Task.WhenAll(devicesTask, usersTask);
+            Devices = await devicesTask;
+            Users = await usersTask;
+            ErrorMessage = null;
+        }
+        catch (BillboardApiException exception)
+        {
+            ErrorMessage = exception.Message;
+        }
+        catch (HttpRequestException)
+        {
+            ErrorMessage = "Не удалось подключиться к API.";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+}

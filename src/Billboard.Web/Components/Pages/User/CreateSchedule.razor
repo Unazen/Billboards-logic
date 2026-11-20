@@ -1,0 +1,270 @@
+@page "/schedules/create"
+
+@inject BillboardApiClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>Создание расписания | Billboard</PageTitle>
+
+<div class="create-page">
+    <div class="page-heading">
+        <div><h1>Создание расписания</h1><p>Создайте рекламное размещение на билборде или группе устройств</p></div>
+        <a href="/schedules" class="back-button">← Назад к расписаниям</a>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+    {
+        <div class="error-message" role="alert">@ErrorMessage</div>
+    }
+
+    @if (IsLoading)
+    {
+        <section class="form-section">Загрузка доступных материалов и устройств…</section>
+    }
+    else
+    {
+        <section class="form-section">
+            <h2>Параметры размещения</h2>
+            <form @onsubmit="CreatePlacementAsync" @onsubmit:preventDefault>
+                <div class="form-group">
+                    <label for="video">Видеоролик</label>
+                    <select id="video" @bind="SelectedVideoId" required>
+                        <option value="">Выберите видео</option>
+                        @foreach (var video in Videos)
+                        {
+                            <option value="@video.Id">@video.FileName (@video.Status)</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="target-type">Назначение</label>
+                    <select id="target-type" @bind="TargetType" @bind:after="OnTargetTypeChanged">
+                        <option value="device">Отдельное устройство</option>
+                        <option value="group">Группа устройств</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="target">@(TargetType == "device" ? "Билборд" : "Группа устройств")</label>
+                    <select id="target" @bind="SelectedTargetId" required>
+                        <option value="">Выберите назначение</option>
+                        @if (TargetType == "device")
+                        {
+                            @foreach (var device in Billboards)
+                            {
+                                <option value="@device.Id">@device.Name — @device.Address</option>
+                            }
+                        }
+                        else
+                        {
+                            @foreach (var group in Groups)
+                            {
+                                <option value="@group.Id">@group.Name (@group.Billboards.Count устройств)</option>
+                            }
+                        }
+                    </select>
+                </div>
+
+                <h2 class="period-heading">Период действия и время показа</h2>
+                <div class="date-fields">
+                    <div class="form-group"><label for="start-date">Дата начала</label><input id="start-date" type="date" @bind="StartDate" /></div>
+                    <div class="form-group"><label for="end-date">Дата окончания</label><input id="end-date" type="date" @bind="EndDate" /></div>
+                </div>
+                <div class="date-fields">
+                    <div class="form-group"><label for="start-time">Время начала</label><input id="start-time" type="time" @bind="StartTime" /></div>
+                    <div class="form-group"><label for="end-time">Время окончания</label><input id="end-time" type="time" @bind="EndTime" /></div>
+                </div>
+                <div class="form-group">
+                    <label>Дни недели</label>
+                    <div class="day-selector">
+                        @foreach (var day in Days)
+                        {
+                            <label><input type="checkbox" checked="@SelectedDays.Contains(day.Value)" @onchange="() => ToggleDay(day.Value)" /> @day.Label</label>
+                        }
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="plays-per-hour">Минимальное количество показов в час</label>
+                    <input id="plays-per-hour" type="number" min="1" max="600" @bind="MinimumPlaysPerHour" />
+                </div>
+                @if (Quote is not null)
+                {
+                    <p class="form-message">Предварительная стоимость: @Quote.TotalAmount.ToString("N2") $</p>
+                }
+
+                <div class="form-actions">
+                    <a href="/schedules" class="cancel-button">Отмена</a>
+                    <button type="submit" class="submit-button" disabled="@IsBusy">
+                        @(IsBusy ? "Проверка…" : "Создать черновик")
+                    </button>
+                </div>
+            </form>
+        </section>
+    }
+</div>
+
+@code {
+    private static readonly (string Value, string Label)[] Days =
+    [
+        ("Monday", "Пн"), ("Tuesday", "Вт"), ("Wednesday", "Ср"),
+        ("Thursday", "Чт"), ("Friday", "Пт"), ("Saturday", "Сб"), ("Sunday", "Вс")
+    ];
+
+    private IReadOnlyList<Billboard.Application.Contracts.VideoDto> Videos { get; set; } = [];
+    private IReadOnlyList<Billboard.Application.Contracts.BillboardDto> Billboards { get; set; } = [];
+    private IReadOnlyList<Billboard.Application.Contracts.BillboardGroupDto> Groups { get; set; } = [];
+    private HashSet<string> SelectedDays { get; } = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    private string SelectedVideoId { get; set; } = string.Empty;
+    private string SelectedTargetId { get; set; } = string.Empty;
+    private string TargetType { get; set; } = "device";
+    private DateOnly StartDate { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+    private DateOnly EndDate { get; set; } = DateOnly.FromDateTime(DateTime.Today.AddDays(7));
+    private TimeOnly StartTime { get; set; } = new(0, 0);
+    private TimeOnly EndTime { get; set; } = new(23, 59);
+    private int MinimumPlaysPerHour { get; set; } = 1;
+    private string? ErrorMessage { get; set; }
+    private Billboard.Application.Contracts.QuoteDto? Quote { get; set; }
+    private bool IsLoading { get; set; } = true;
+    private bool IsBusy { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var videosTask = Api.GetListAsync<Billboard.Application.Contracts.VideoDto>("api/v1/videos?all=false");
+            var billboardsTask = Api.GetListAsync<Billboard.Application.Contracts.BillboardDto>("api/v1/billboards");
+            var groupsTask = Api.GetListAsync<Billboard.Application.Contracts.BillboardGroupDto>("api/v1/billboard-groups?mine=true");
+            await Task.WhenAll(videosTask, billboardsTask, groupsTask);
+            Videos = await videosTask;
+            Billboards = await billboardsTask;
+            Groups = await groupsTask;
+            SelectedVideoId = Videos.FirstOrDefault(video => video.Status.Equals("Ready", StringComparison.OrdinalIgnoreCase))?.Id.ToString() ?? string.Empty;
+            SelectedTargetId = Billboards.FirstOrDefault()?.Id.ToString() ?? string.Empty;
+        }
+        catch (BillboardApiException exception)
+        {
+            ErrorMessage = exception.Message;
+        }
+        catch (HttpRequestException)
+        {
+            ErrorMessage = "Не удалось подключиться к API.";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private void OnTargetTypeChanged() =>
+        SelectedTargetId = TargetType == "device"
+            ? Billboards.FirstOrDefault()?.Id.ToString() ?? string.Empty
+            : Groups.FirstOrDefault()?.Id.ToString() ?? string.Empty;
+
+    private void ToggleDay(string day)
+    {
+        if (!SelectedDays.Add(day))
+            SelectedDays.Remove(day);
+    }
+
+    private async Task CreatePlacementAsync()
+    {
+        ErrorMessage = null;
+        Quote = null;
+        if (!Guid.TryParse(SelectedVideoId, out var videoId) ||
+            !Guid.TryParse(SelectedTargetId, out var targetId) ||
+            SelectedDays.Count == 0 ||
+            EndDate < StartDate ||
+            EndTime <= StartTime)
+        {
+            ErrorMessage = "Проверьте выбранное видео, назначение, даты, время и дни недели.";
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            if (TargetType == "device")
+            {
+                var request = new Billboard.Application.Contracts.PlacementUpsertRequest(
+                    videoId,
+                    targetId,
+                    ToLocalDateTime(StartDate),
+                    ToLocalDateTime(EndDate.AddDays(1)),
+                    SelectedDays.Order().ToArray(),
+                    StartTime,
+                    EndTime,
+                    MinimumPlaysPerHour);
+                var validation = await Api.PostAsync<Billboard.Application.Contracts.PlacementValidationResultDto>(
+                    "api/v1/placements/validate",
+                    request);
+                if (!validation.Available)
+                {
+                    ErrorMessage = validation.Conflicts.FirstOrDefault()?.Message
+                        ?? "Выбранный временной интервал недоступен.";
+                    return;
+                }
+
+                Quote = validation.Quote;
+                await Api.PostAsync<Billboard.Application.Contracts.PlacementDto>("api/v1/placements", request);
+            }
+            else
+            {
+                var group = Groups.First(item => item.Id == targetId);
+                if (group.Billboards.Count == 0)
+                {
+                    ErrorMessage = "В выбранной группе нет билбордов.";
+                    return;
+                }
+
+                var template = new Billboard.Application.Contracts.PlacementGroupTemplateDto(
+                    videoId,
+                    StartDate,
+                    EndDate,
+                    SelectedDays.Order().ToArray(),
+                    StartTime,
+                    EndTime,
+                    MinimumPlaysPerHour);
+                var request = new Billboard.Application.Contracts.PlacementGroupRequestDto(
+                    group.Billboards.Select(device => device.Id).ToArray(),
+                    template);
+                var validation = await Api.PostAsync<Billboard.Application.Contracts.GroupScheduleValidationDto>(
+                    "api/v1/placement-groups/validate",
+                    request);
+                if (!validation.CanPublish)
+                {
+                    ErrorMessage = validation.Results
+                        .SelectMany(item => item.Conflicts)
+                        .FirstOrDefault()?.Message
+                        ?? "Выбранный интервал недоступен на всех устройствах группы.";
+                    return;
+                }
+
+                var result = await Api.PostAsync<Billboard.Application.Contracts.GroupPlacementOperationDto>(
+                    "api/v1/placement-groups/drafts",
+                    request);
+                if (!result.Success)
+                {
+                    ErrorMessage = result.Message ?? result.ErrorCode ?? "Не удалось создать групповые черновики.";
+                    return;
+                }
+            }
+
+            Navigation.NavigateTo("/schedules");
+        }
+        catch (BillboardApiException exception)
+        {
+            ErrorMessage = exception.Message;
+        }
+        catch (HttpRequestException)
+        {
+            ErrorMessage = "Не удалось подключиться к API.";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private static DateTimeOffset ToLocalDateTime(DateOnly date) =>
+        new(date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Local));
+}

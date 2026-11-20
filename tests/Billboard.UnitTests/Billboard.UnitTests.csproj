@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -10,6 +10,7 @@
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.0" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
   </ItemGroup>
@@ -19,8 +20,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="xunit.runner.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Billboard.Domain\Billboard.Domain.csproj" />
     <ProjectReference Include="..\..\src\Billboard.Application\Billboard.Application.csproj" />
+    <ProjectReference Include="..\..\src\Billboard.Infrastructure\Billboard.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,0 +1,114 @@
+@page "/streams"
+@page "/admin/streams"
+
+@inject ApiSession Session
+@inject BillboardApiClient Api
+
+<PageTitle>Просмотр трансляций | Billboard</PageTitle>
+
+<div class="client-page">
+    <div class="client-page-heading">
+        <div>
+            <h1>Просмотр трансляций</h1>
+            <p>@(Session.IsAdministrator ? "Состояние устройств системы" : "Состояние ваших билбордов")</p>
+        </div>
+        <span class="client-count">Устройств: @Devices.Count</span>
+    </div>
+
+    <div class="client-demo-note">
+        <span aria-hidden="true">ⓘ</span>
+        API проекта пока не предоставляет endpoint видеотрансляции. Ниже показан реальный статус устройств, без имитации видеоэфира.
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+    {
+        <div class="billing-message" role="alert">@ErrorMessage</div>
+    }
+    else if (IsLoading)
+    {
+        <div class="client-panel client-empty-state">Загрузка устройств…</div>
+    }
+    else if (Devices.Count == 0)
+    {
+        <section class="client-panel client-empty-state">
+            <h2>Нет доступных устройств</h2>
+            <p>Устройства появятся после добавления или назначения аккаунту.</p>
+        </section>
+    }
+    else
+    {
+        <section class="client-panel">
+            <div class="client-responsive-table">
+                <table class="client-table">
+                    <thead>
+                        <tr><th>Устройство</th><th>Статус</th><th>Последнее соединение</th><th>Буфер устройства</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var device in Devices)
+                        {
+                            <tr @key="device.Id">
+                                <td><strong>@device.Name</strong><small>@device.Id</small></td>
+                                <td><span class="client-status @(IsOnline(device.Status) ? "online" : "offline")"><i></i>@device.Status</span></td>
+                                <td>@(device.LastSeenAt?.ToLocalTime().ToString("dd.MM.yyyy HH:mm") ?? "Нет данных")</td>
+                                <td>@FormatBytes(device.CacheUsedBytes) / @FormatBytes(device.CapacityBytes)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<Billboard.Application.Contracts.AdminDeviceDto> Devices { get; set; } = [];
+    private string? ErrorMessage { get; set; }
+    private bool IsLoading { get; set; } = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var path = Session.IsAdministrator
+                ? "api/v1/admin/devices"
+                : "api/v1/billboards?mine=true";
+            if (Session.IsAdministrator)
+            {
+                Devices = await Api.GetListAsync<Billboard.Application.Contracts.AdminDeviceDto>(path);
+            }
+            else
+            {
+                var billboards = await Api.GetListAsync<Billboard.Application.Contracts.BillboardDto>(path);
+                Devices = billboards.Select(item => new Billboard.Application.Contracts.AdminDeviceDto(
+                    item.Id,
+                    item.Name,
+                    item.Status,
+                    item.LastSeenAt,
+                    null,
+                    0,
+                    item.CapacityBytes)).ToList();
+            }
+        }
+        catch (BillboardApiException exception)
+        {
+            ErrorMessage = exception.Message;
+        }
+        catch (HttpRequestException)
+        {
+            ErrorMessage = "Не удалось подключиться к API.";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private static bool IsOnline(string status) =>
+        status.Equals("Online", StringComparison.OrdinalIgnoreCase) ||
+        status.Equals("В сети", StringComparison.OrdinalIgnoreCase);
+
+    private static string FormatBytes(long bytes) =>
+        bytes >= 1024L * 1024 * 1024
+            ? $"{bytes / (1024d * 1024 * 1024):N1} ГБ"
+            : $"{bytes / 1024d / 1024:N0} МБ";
+}

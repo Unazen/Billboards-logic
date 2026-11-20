@@ -1,0 +1,161 @@
+@page "/admin/logs"
+
+@inject BillboardApiClient Api
+@inject Microsoft.JSInterop.IJSRuntime JS
+
+<PageTitle>Системные логи | Billboard</PageTitle>
+
+<div class="admin-logs-page">
+    <div class="admin-logs-heading">
+        <div><h1>Системные логи</h1><p>Журнал действий пользователей и состояния устройств</p></div>
+        <button class="admin-export-button" @onclick="ExportAsync" disabled="@IsBusy">↓ Экспортировать CSV</button>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+    {
+        <div class="billing-message" role="alert">@ErrorMessage</div>
+    }
+
+    <section class="admin-logs-card">
+        <div class="admin-log-filters">
+            <label>
+                <span>Действие (точное совпадение)</span>
+                <input type="search" @bind="ActionFilter" placeholder="Например: user.created" />
+            </label>
+            <label>
+                <span>ID пользователя</span>
+                <input type="text" @bind="UserIdFilter" placeholder="GUID" />
+            </label>
+            <label>
+                <span>Событий</span>
+                <select @bind="Take">
+                    <option value="50">50</option><option value="100">100</option><option value="500">500</option>
+                </select>
+            </label>
+            <button class="action-button" @onclick="LoadAsync" disabled="@IsBusy">Применить фильтры</button>
+            <span class="admin-log-result-count">Найдено: @FilteredLogs.Count</span>
+        </div>
+
+        @if (IsLoading)
+        {
+            <div class="admin-log-empty">Загрузка системных логов…</div>
+        }
+        else if (FilteredLogs.Count == 0)
+        {
+            <div class="admin-log-empty">По заданным фильтрам событий не найдено.</div>
+        }
+        else
+        {
+            <div class="admin-log-table-wrap">
+                <table class="admin-log-table">
+                    <thead><tr><th>Время</th><th>Результат</th><th>Событие</th><th>Пользователь</th><th>Объект</th><th>Подробности</th></tr></thead>
+                    <tbody>
+                        @foreach (var entry in FilteredLogs)
+                        {
+                            <tr @key="entry.Id">
+                                <td>@entry.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss")</td>
+                                <td><span class="admin-log-level @LevelClass(entry.Result)">@entry.Result</span></td>
+                                <td><strong>@entry.Action</strong></td>
+                                <td>@(entry.UserId?.ToString() ?? "Система")</td>
+                                <td>@($"{entry.EntityType ?? "—"} {entry.EntityId}".Trim())</td>
+                                <td>@entry.Details</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    private string ActionFilter { get; set; } = string.Empty;
+    private string UserIdFilter { get; set; } = string.Empty;
+    private int Take { get; set; } = 100;
+    private IReadOnlyList<Billboard.Application.Contracts.SystemLogDto> LogItems { get; set; } = [];
+    private string? ErrorMessage { get; set; }
+    private bool IsLoading { get; set; } = true;
+    private bool IsBusy { get; set; }
+    private IReadOnlyList<Billboard.Application.Contracts.SystemLogDto> FilteredLogs => LogItems
+        .Where(log => string.IsNullOrWhiteSpace(ActionFilter) || log.Action.Equals(ActionFilter, StringComparison.OrdinalIgnoreCase))
+        .ToList();
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        ErrorMessage = null;
+        if (!string.IsNullOrWhiteSpace(UserIdFilter) && !Guid.TryParse(UserIdFilter, out _))
+        {
+            ErrorMessage = "ID пользователя должен быть GUID.";
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            LogItems = await Api.GetListAsync<Billboard.Application.Contracts.SystemLogDto>(BuildQuery("api/v1/admin/logs"));
+        }
+        catch (BillboardApiException exception)
+        {
+            ErrorMessage = exception.Message;
+        }
+        catch (HttpRequestException)
+        {
+            ErrorMessage = "Не удалось подключиться к API.";
+        }
+        finally
+        {
+            IsLoading = false;
+            IsBusy = false;
+        }
+    }
+
+    private async Task ExportAsync()
+    {
+        ErrorMessage = null;
+        IsBusy = true;
+        try
+        {
+            var (content, contentType) = await Api.GetFileAsync(BuildQuery("api/v1/admin/logs/export"));
+            await JS.InvokeVoidAsync(
+                "billboardDownloadFile",
+                $"system-logs-{DateTime.UtcNow:yyyyMMdd-HHmmss}.csv",
+                contentType,
+                Convert.ToBase64String(content));
+        }
+        catch (BillboardApiException exception)
+        {
+            ErrorMessage = exception.Message;
+        }
+        catch (HttpRequestException)
+        {
+            ErrorMessage = "Не удалось подключиться к API.";
+        }
+        catch (Microsoft.JSInterop.JSException exception)
+        {
+            ErrorMessage = $"Не удалось сохранить CSV: {exception.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private string BuildQuery(string path)
+    {
+        var parameters = new List<string> { $"take={Take}" };
+        if (!string.IsNullOrWhiteSpace(ActionFilter))
+            parameters.Add($"action={Uri.EscapeDataString(ActionFilter.Trim())}");
+        if (Guid.TryParse(UserIdFilter, out var userId))
+            parameters.Add($"userId={userId}");
+        return $"{path}?{string.Join("&", parameters)}";
+    }
+
+    private static string LevelClass(string result) => result.ToLowerInvariant() switch
+    {
+        "failed" or "error" => "error",
+        "warning" => "warning",
+        _ => "info"
+    };
+}

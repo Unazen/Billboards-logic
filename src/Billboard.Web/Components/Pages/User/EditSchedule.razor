@@ -1,0 +1,192 @@
+@page "/schedules/edit/{Id:guid}"
+
+@inject BillboardApiClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>Редактирование размещения | Billboard</PageTitle>
+
+<div class="edit-page">
+    @if (IsLoading)
+    {
+        <div class="not-found"><p>Загрузка размещения…</p></div>
+    }
+    else if (Placement is null)
+    {
+        <div class="not-found">
+            <h2>Размещение не найдено</h2>
+            <p>@ErrorMessage</p>
+            <a href="/schedules" class="back-button">Вернуться к расписаниям</a>
+        </div>
+    }
+    else
+    {
+        <div class="page-heading">
+            <div><h1>Редактирование размещения</h1><p>Изменение параметров рекламной трансляции</p></div>
+            <a href="/schedules" class="back-button">← Назад к расписаниям</a>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+        {
+            <div class="error-message" role="alert">@ErrorMessage</div>
+        }
+
+        <section class="form-section">
+            <h2>Параметры размещения</h2>
+            <form @onsubmit="SaveAsync" @onsubmit:preventDefault>
+                <div class="form-group">
+                    <label for="video">Видеоролик</label>
+                    <select id="video" @bind="VideoId" required>
+                        @foreach (var video in Videos)
+                        {
+                            <option value="@video.Id">@video.FileName (@video.Status)</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="billboard">Билборд</label>
+                    <select id="billboard" @bind="BillboardId" required>
+                        @foreach (var billboard in Billboards)
+                        {
+                            <option value="@billboard.Id">@billboard.Name — @billboard.Address</option>
+                        }
+                    </select>
+                </div>
+
+                <h2 class="period-heading">Период действия и время показа</h2>
+                <div class="date-fields">
+                    <div class="form-group"><label for="start-date">Дата начала</label><input id="start-date" type="date" @bind="StartDate" /></div>
+                    <div class="form-group"><label for="end-date">Дата окончания</label><input id="end-date" type="date" @bind="EndDate" /></div>
+                </div>
+                <div class="date-fields">
+                    <div class="form-group"><label for="start-time">Время начала</label><input id="start-time" type="time" @bind="StartTime" /></div>
+                    <div class="form-group"><label for="end-time">Время окончания</label><input id="end-time" type="time" @bind="EndTime" /></div>
+                </div>
+                <div class="form-group">
+                    <label>Дни недели</label>
+                    <div class="day-selector">
+                        @foreach (var day in Days)
+                        {
+                            <label><input type="checkbox" checked="@SelectedDays.Contains(day.Value)" @onchange="() => ToggleDay(day.Value)" /> @day.Label</label>
+                        }
+                    </div>
+                </div>
+                <div class="form-group"><label for="plays-per-hour">Минимум показов в час</label><input id="plays-per-hour" type="number" min="1" max="600" @bind="MinimumPlaysPerHour" /></div>
+
+                <div class="form-actions">
+                    <a href="/schedules" class="cancel-button">Отмена</a>
+                    <button type="submit" class="submit-button" disabled="@IsBusy">@(IsBusy ? "Сохранение…" : "Сохранить изменения")</button>
+                </div>
+            </form>
+        </section>
+    }
+</div>
+
+@code {
+    private static readonly (string Value, string Label)[] Days =
+    [
+        ("Monday", "Пн"), ("Tuesday", "Вт"), ("Wednesday", "Ср"),
+        ("Thursday", "Чт"), ("Friday", "Пт"), ("Saturday", "Сб"), ("Sunday", "Вс")
+    ];
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private Billboard.Application.Contracts.PlacementDto? Placement { get; set; }
+    private IReadOnlyList<Billboard.Application.Contracts.VideoDto> Videos { get; set; } = [];
+    private IReadOnlyList<Billboard.Application.Contracts.BillboardDto> Billboards { get; set; } = [];
+    private HashSet<string> SelectedDays { get; } = [];
+    private Guid VideoId { get; set; }
+    private Guid BillboardId { get; set; }
+    private DateOnly StartDate { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+    private DateOnly EndDate { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+    private TimeOnly StartTime { get; set; }
+    private TimeOnly EndTime { get; set; }
+    private int MinimumPlaysPerHour { get; set; } = 1;
+    private string? ErrorMessage { get; set; }
+    private bool IsLoading { get; set; } = true;
+    private bool IsBusy { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        IsLoading = true;
+        try
+        {
+            var placementTask = Api.GetAsync<Billboard.Application.Contracts.PlacementDto>($"api/v1/placements/{Id}");
+            var videosTask = Api.GetListAsync<Billboard.Application.Contracts.VideoDto>("api/v1/videos?all=false");
+            var billboardsTask = Api.GetListAsync<Billboard.Application.Contracts.BillboardDto>("api/v1/billboards?mine=true");
+            await Task.WhenAll(placementTask, videosTask, billboardsTask);
+            Placement = await placementTask;
+            Videos = await videosTask;
+            Billboards = await billboardsTask;
+            VideoId = Placement.VideoAssetId;
+            BillboardId = Placement.BillboardId;
+            StartDate = DateOnly.FromDateTime(Placement.StartAt.ToLocalTime().Date);
+            EndDate = DateOnly.FromDateTime(Placement.EndAt.ToLocalTime().Date.AddDays(-1));
+            StartTime = Placement.StartTimeOfDay;
+            EndTime = Placement.EndTimeOfDay;
+            MinimumPlaysPerHour = Placement.MinimumPlaysPerHour;
+            SelectedDays.Clear();
+            foreach (var day in Placement.DaysOfWeek)
+                SelectedDays.Add(day);
+        }
+        catch (BillboardApiException exception)
+        {
+            ErrorMessage = exception.Message;
+        }
+        catch (HttpRequestException)
+        {
+            ErrorMessage = "Не удалось подключиться к API.";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private void ToggleDay(string day)
+    {
+        if (!SelectedDays.Add(day))
+            SelectedDays.Remove(day);
+    }
+
+    private async Task SaveAsync()
+    {
+        if (SelectedDays.Count == 0 || EndDate < StartDate || EndTime <= StartTime)
+        {
+            ErrorMessage = "Проверьте даты, время и выбранные дни недели.";
+            return;
+        }
+
+        IsBusy = true;
+        ErrorMessage = null;
+        try
+        {
+            var request = new Billboard.Application.Contracts.PlacementUpsertRequest(
+                VideoId,
+                BillboardId,
+                ToLocalDateTime(StartDate),
+                ToLocalDateTime(EndDate.AddDays(1)),
+                SelectedDays.Order().ToArray(),
+                StartTime,
+                EndTime,
+                MinimumPlaysPerHour);
+            await Api.PatchAsync<Billboard.Application.Contracts.PlacementDto>($"api/v1/placements/{Id}", request);
+            Navigation.NavigateTo("/schedules");
+        }
+        catch (BillboardApiException exception)
+        {
+            ErrorMessage = exception.Message;
+        }
+        catch (HttpRequestException)
+        {
+            ErrorMessage = "Не удалось подключиться к API.";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private static DateTimeOffset ToLocalDateTime(DateOnly date) =>
+        new(date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Local));
+}
