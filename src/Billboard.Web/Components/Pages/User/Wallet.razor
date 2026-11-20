@@ -26,8 +26,8 @@
         <div class="wallet-grid">
             <section class="client-panel wallet-balance-card">
                 <span class="wallet-label">ДОСТУПНЫЙ БАЛАНС</span>
-                <strong>@WalletData.Balance.ToString("N2", RussianCulture) @WalletData.Currency</strong>
-                <p>Зарезервировано: @WalletData.ReservedBalance.ToString("N2", RussianCulture) @WalletData.Currency</p>
+                <strong>@WalletData.Balance.ToString("N2", RussianCulture) $</strong>
+                <p>Зарезервировано: @WalletData.ReservedBalance.ToString("N2", RussianCulture) $</p>
                 <a href="/tariffs">Посмотреть тарифы →</a>
             </section>
 
@@ -35,9 +35,9 @@
                 <h2>Пополнить баланс</h2>
                 <p>Пополнение выполняется API в учебном режиме, без реального платёжного провайдера.</p>
                 <form @onsubmit="TopUpAsync" @onsubmit:preventDefault>
-                    <label for="top-up-amount">Сумма, @WalletData.Currency</label>
+                    <label for="top-up-amount">Сумма, $</label>
                     <input id="top-up-amount" type="number" min="0.01" max="100000" step="0.01" @bind="Amount" required disabled="@IsBusy" />
-                    <small>До 100 000 @WalletData.Currency</small>
+                    <small>До 100 000 $</small>
                     @if (!string.IsNullOrWhiteSpace(Message))
                     {
                         <div class="wallet-message @(Succeeded ? "success" : "error")" role="status">@Message</div>
@@ -63,9 +63,9 @@
                                 <td>@transaction.Type</td>
                                 <td>@transaction.Description</td>
                                 <td class="@(transaction.Amount >= 0 ? "amount-positive" : "amount-negative")">
-                                    @(transaction.Amount > 0 ? "+" : string.Empty)@transaction.Amount.ToString("N2", RussianCulture) @WalletData.Currency
+                                    @(transaction.Amount > 0 ? "+" : string.Empty)@transaction.Amount.ToString("N2", RussianCulture) $
                                 </td>
-                                <td>@transaction.BalanceAfter.ToString("N2", RussianCulture) @WalletData.Currency</td>
+                                <td>@transaction.BalanceAfter.ToString("N2", RussianCulture) $</td>
                             </tr>
                         }
                     </tbody>

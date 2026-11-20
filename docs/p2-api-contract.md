@@ -211,7 +211,7 @@ Authorization: Bearer <user token>
     "discountPercent": 0,
     "pricePerPlayAfterDiscount": 5,
     "totalAmount": 1200,
-    "currency": "RUB"
+    "currency": "USD"
   },
   "conflicts": [
     {

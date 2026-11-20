@@ -12,7 +12,7 @@
         </div>
         @if (Wallet is not null)
         {
-            <a class="client-count" href="/wallet">Баланс: @Wallet.Balance.ToString("N0", RussianCulture) @Wallet.Currency</a>
+            <a class="client-count" href="/wallet">Баланс: @Wallet.Balance.ToString("N0", RussianCulture) $</a>
         }
     </div>
 
@@ -47,7 +47,7 @@
                         }
                     </div>
                     <div class="tariff-price">
-                        <strong>@(tariff.MonthlyPrice == 0 ? "Бесплатно" : $"{tariff.MonthlyPrice.ToString("N0", RussianCulture)} {Wallet?.Currency ?? "₽"}")</strong>
+                        <strong>@(tariff.MonthlyPrice == 0 ? "Бесплатно" : $"{tariff.MonthlyPrice.ToString("N0", RussianCulture)} $")</strong>
                         @if (tariff.MonthlyPrice > 0)
                         {
                             <span>/ месяц</span>

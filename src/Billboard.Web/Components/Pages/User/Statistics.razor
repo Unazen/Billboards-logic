@@ -31,15 +31,15 @@
                 <small>Подтверждённые события воспроизведения</small>
             </div>
             <div class="client-stat-card">
-                <span class="client-stat-icon orange">₽</span>
+                <span class="client-stat-icon orange">$</span>
                 <span class="client-stat-label">Расходы</span>
-                <strong>@Usage.Sum(item => item.Spent).ToString("N2", RussianCulture) ₽</strong>
+                <strong>@Usage.Sum(item => item.Spent).ToString("N2", RussianCulture) $</strong>
                 <small>Фактические списания по размещениям</small>
             </div>
             <div class="client-stat-card">
                 <span class="client-stat-icon violet">◷</span>
                 <span class="client-stat-label">Зарезервировано</span>
-                <strong>@Usage.Sum(item => item.Reserved).ToString("N2", RussianCulture) ₽</strong>
+                <strong>@Usage.Sum(item => item.Reserved).ToString("N2", RussianCulture) $</strong>
                 <small>Средства в активных размещениях</small>
             </div>
         </div>
@@ -67,8 +67,8 @@
                                     <td><strong>@item.PlacementId</strong></td>
                                     <td>@item.BillboardId</td>
                                     <td>@item.Plays.ToString("N0", RussianCulture)</td>
-                                    <td>@item.Spent.ToString("N2", RussianCulture) ₽</td>
-                                    <td>@item.Reserved.ToString("N2", RussianCulture) ₽</td>
+                                    <td>@item.Spent.ToString("N2", RussianCulture) $</td>
+                                    <td>@item.Reserved.ToString("N2", RussianCulture) $</td>
                                 </tr>
                             }
                         </tbody>

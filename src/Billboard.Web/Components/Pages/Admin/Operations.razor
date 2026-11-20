@@ -48,8 +48,8 @@
             <div class="client-stat-card"><span class="client-stat-icon blue">♙</span><span class="client-stat-label">Пользователи</span><strong>@UserCountLabel</strong><small>Не больше 100 записей загружено</small></div>
             <div class="client-stat-card"><span class="client-stat-icon violet">▣</span><span class="client-stat-label">Устройства</span><strong>@Devices.Count</strong><small>@Devices.Count(device => IsOnline(device.Status)) в сети</small></div>
             <div class="client-stat-card"><span class="client-stat-icon green">▷</span><span class="client-stat-label">Показы</span><strong>@Usage.Sum(item => item.Plays).ToString("N0")</strong><small>Подтверждённые события</small></div>
-            <div class="client-stat-card"><span class="client-stat-icon orange">₽</span><span class="client-stat-label">Расходы размещений</span><strong>@Usage.Sum(item => item.Spent).ToString("N2") ₽</strong><small>Всего по системе</small></div>
-            <div class="client-stat-card"><span class="client-stat-icon green">↗</span><span class="client-stat-label">Доход владельцев</span><strong>@(Earnings?.Total.ToString("N2") ?? "0,00") ₽</strong><small>@(Earnings?.Count ?? 0) начислений</small></div>
+            <div class="client-stat-card"><span class="client-stat-icon orange">$</span><span class="client-stat-label">Расходы размещений</span><strong>@Usage.Sum(item => item.Spent).ToString("N2") $</strong><small>Всего по системе</small></div>
+            <div class="client-stat-card"><span class="client-stat-icon green">↗</span><span class="client-stat-label">Доход владельцев</span><strong>@(Earnings?.Total.ToString("N2") ?? "0,00") $</strong><small>@(Earnings?.Count ?? 0) начислений</small></div>
             <div class="client-stat-card"><span class="client-stat-icon blue">▤</span><span class="client-stat-label">Группы устройств</span><strong>@Groups.Count</strong><small>Группы системы</small></div>
         </div>
 
@@ -61,7 +61,7 @@
                     <tbody>
                         @foreach (var item in Usage)
                         {
-                            <tr @key="item.PlacementId"><td>@item.PlacementId</td><td>@item.BillboardId</td><td>@item.Plays</td><td>@item.Spent.ToString("N2") ₽</td><td>@item.Reserved.ToString("N2") ₽</td></tr>
+                            <tr @key="item.PlacementId"><td>@item.PlacementId</td><td>@item.BillboardId</td><td>@item.Plays</td><td>@item.Spent.ToString("N2") $</td><td>@item.Reserved.ToString("N2") $</td></tr>
                         }
                     </tbody>
                 </table>

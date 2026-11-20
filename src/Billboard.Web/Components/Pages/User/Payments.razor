@@ -27,19 +27,19 @@
             <div class="client-stat-card">
                 <span class="client-stat-icon green">＋</span>
                 <span class="client-stat-label">Зачислено</span>
-                <strong>@TotalIncoming.ToString("N2", RussianCulture) @Wallet.Currency</strong>
+                <strong>@TotalIncoming.ToString("N2", RussianCulture) $</strong>
                 <small>По загруженной истории операций</small>
             </div>
             <div class="client-stat-card">
                 <span class="client-stat-icon orange">−</span>
                 <span class="client-stat-label">Списано</span>
-                <strong>@TotalOutgoing.ToString("N2", RussianCulture) @Wallet.Currency</strong>
+                <strong>@TotalOutgoing.ToString("N2", RussianCulture) $</strong>
                 <small>Оплаты и резервы по размещениям</small>
             </div>
             <div class="client-stat-card">
                 <span class="client-stat-icon blue">⇄</span>
                 <span class="client-stat-label">Текущий баланс</span>
-                <strong>@Wallet.Balance.ToString("N2", RussianCulture) @Wallet.Currency</strong>
+                <strong>@Wallet.Balance.ToString("N2", RussianCulture) $</strong>
                 <small><a href="/wallet">Открыть баланс →</a></small>
             </div>
         </div>
@@ -84,9 +84,9 @@
                                     <td><span class="payment-type">@transaction.Type</span></td>
                                     <td>@transaction.Description</td>
                                     <td class="@(transaction.Amount >= 0 ? "amount-positive" : "amount-negative")">
-                                        @(transaction.Amount > 0 ? "+" : string.Empty)@transaction.Amount.ToString("N2", RussianCulture) @Wallet.Currency
+                                        @(transaction.Amount > 0 ? "+" : string.Empty)@transaction.Amount.ToString("N2", RussianCulture) $
                                     </td>
-                                    <td>@transaction.BalanceAfter.ToString("N2", RussianCulture) @Wallet.Currency</td>
+                                    <td>@transaction.BalanceAfter.ToString("N2", RussianCulture) $</td>
                                 </tr>
                             }
                         </tbody>
